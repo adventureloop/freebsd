@@ -140,6 +140,12 @@ u_long	udp_recvspace = 40 * (1024 +
 SYSCTL_ULONG(_net_inet_udp, UDPCTL_RECVSPACE, recvspace, CTLFLAG_RW,
     &udp_recvspace, 0, "Maximum space for incoming UDP datagrams");
 
+VNET_DEFINE(int, udp_trailing_data) = 0;
+SYSCTL_INT(_net_inet_udp, OID_AUTO, udp_trailing_data, CTLFLAG_VNET | CTLFLAG_RW,
+       &VNET_NAME(udp_trailing_data), 0,
+	  "dirty hack - send udp trailing data");
+#define	V_udp_trailing_data VNET(udp_trailing_data)
+
 VNET_DEFINE(struct inpcbhead, udb);		/* from udp_var.h */
 VNET_DEFINE(struct inpcbinfo, udbinfo);
 VNET_DEFINE(struct inpcbhead, ulitecb);
@@ -1460,7 +1466,12 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		m->m_pkthdr.csum_flags = CSUM_UDP;
 		m->m_pkthdr.csum_data = offsetof(struct udphdr, uh_sum);
 	}
-	((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len);
+	if (V_udp_trailing_data) {
+		u_char *trailer = "freebsd";
+		m_append(m, strlen(trailer), trailer);
+		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + strlen(trailer));
+	} else
+		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len);
 	((struct ip *)ui)->ip_ttl = inp->inp_ip_ttl;	/* XXX */
 	((struct ip *)ui)->ip_tos = tos;		/* XXX */
 	UDPSTAT_INC(udps_opackets);
