@@ -503,6 +503,7 @@ struct mbuf {
 #define	CSUM_IP_SCTP		0x00000008	/* SCTP checksum offload */
 #define	CSUM_IP_TSO		0x00000010	/* TCP segmentation offload */
 #define	CSUM_IP_ISCSI		0x00000020	/* iSCSI checksum offload */
+#define	CSUM_IP_UDP_TRAIL	0x00000040	/* UDP trailing data */
 
 #define	CSUM_IP6_UDP		0x00000200	/* UDP checksum offload */
 #define	CSUM_IP6_TCP		0x00000400	/* TCP checksum offload */
@@ -524,7 +525,7 @@ struct mbuf {
  */
 #define	CSUM_BITS \
     "\20\1CSUM_IP\2CSUM_IP_UDP\3CSUM_IP_TCP\4CSUM_IP_SCTP\5CSUM_IP_TSO" \
-    "\6CSUM_IP_ISCSI" \
+    "\6CSUM_IP_ISCSI\7CSUM_IP_UDP_TRAIL" \
     "\12CSUM_IP6_UDP\13CSUM_IP6_TCP\14CSUM_IP6_SCTP\15CSUM_IP6_TSO" \
     "\16CSUM_IP6_ISCSI" \
     "\31CSUM_L3_CALC\32CSUM_L3_VALID\33CSUM_L4_CALC\34CSUM_L4_VALID" \
@@ -542,6 +543,7 @@ struct mbuf {
 #define	CSUM_DATA_VALID_IPV6	CSUM_DATA_VALID
 #define	CSUM_TCP		CSUM_IP_TCP
 #define	CSUM_UDP		CSUM_IP_UDP
+#define	CSUM_UDP_TRAIL		CSUM_IP_UDP_TRAIL
 #define	CSUM_SCTP		CSUM_IP_SCTP
 #define	CSUM_TSO		(CSUM_IP_TSO|CSUM_IP6_TSO)
 #define	CSUM_UDP_IPV6		CSUM_IP6_UDP
