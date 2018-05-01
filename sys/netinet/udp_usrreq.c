@@ -1594,6 +1594,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		int optlen = udp_addoptions(&uo, opt, optsize);
 		m_append(m, optlen, opt);
 		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + optlen); 
+		m->m_pkthdr.csum_flags |= CSUM_UDP_TRAIL;
 	} else 
 		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len); 
 
