@@ -127,7 +127,7 @@ SYSCTL_INT(_net_inet_udp, OID_AUTO, blackhole, CTLFLAG_VNET | CTLFLAG_RW,
     "Do not send port unreachables for refused connects");
 
 VNET_DEFINE(int, udp_doopts) = 0;
-SYSCTL_INT(_net_inet_udp, OID_AUTO, process_udp_options, CTLFLAG_VNET | CTLFLAG_RW,
+SYSCTL_INT(_net_inet_udp, OID_AUTO, process_options, CTLFLAG_VNET | CTLFLAG_RW,
        &VNET_NAME(udp_doopts), 0,
 	  "Enable UDP Options processing draft-ietf-tsvwg-udp-options");
 
