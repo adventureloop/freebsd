@@ -1570,10 +1570,10 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	struct udpcb *up;
 	up = intoudpcb(inp);
 	if (V_udp_doopts && (up->u_flags & UF_OPT)) {
-		//u_char *opt = NULL;
-		u_char opt[1024] ;
+		u_char *opt;
 		size_t optsize;
 		struct udpopt uo;
+		int optlen;
 
 		uo.uo_flags = UOF_MSS | UOF_TIME;
 
@@ -1586,22 +1586,17 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		}
 
 		optsize = udp_optlen(&uo);
-
-		if (optsize > 1023) {
-			panic("too many options\n");
-		}
-		/*
 		opt = malloc(optsize, M_TEMP, M_NOWAIT);
 
 		if (opt == NULL ) {
 			panic("unable to alloc probe memory\n");
 		}
-		*/
 
-		int optlen = udp_addoptions(&uo, opt, optsize);
+		optlen = udp_addoptions(&uo, opt, optsize);
 		m_append(m, optlen, opt);
-
-		//free(opt, M_TEMP);
+		
+		bzero(opt, optlen);
+		free(opt, M_TEMP);
 
 		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + optlen); 
 		m->m_pkthdr.csum_flags |= CSUM_UDP_TRAIL;
