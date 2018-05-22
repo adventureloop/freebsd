@@ -90,20 +90,16 @@ udp_dooptions(struct udpopt *uo, u_char *cp, int cnt)
 			uo->uo_ocs = cp[1];
 
 			if (udp_optcksum(cp, cnt) != 0) {
-				printf("OCS doesn't pass\n");
+				printf("OCS %x doesn't pass\n", uo->uo_ocs);
 				break;
-			} 
+			}
 			continue;
 		} else {
-			if (cnt < 2) {
-				printf("starting exit: < 2\n");	
+			if (cnt < 2)
 				break;
-			}
 			optlen = cp[1];
-			if (optlen < 2 || optlen > cnt) {
-				printf("starting exit optlen < 2 or > cnt, (%d,%d)\n",optlen, cnt);
+			if (optlen < 2 || optlen > cnt)
 				break;
-			}
 		}
 
 		switch (opt) {
@@ -228,6 +224,7 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 
 	/* always add the OCS at the start */
 	optp[0] = UDPOPT_OCS;
+	optp[1] = 0;	/* zero cksum field */
 	optlen += UDPOLEN_OCS;
 	optp += UDPOLEN_OCS;
 
@@ -288,13 +285,10 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 		}
 	}
 
-	/* pad out to four probably */
-
-	cp[optlen++] = UDPOPT_EOL;	//buffer overflow
+	cp[optlen++] = UDPOPT_EOL;
 	cksum = udp_optcksum(cp, optlen);
+	cp[1] = cksum;	/* place computed cksum in OCS */
 
-	cp[1] = cksum;
-	optlen++;
 	return optlen;
 }
 
