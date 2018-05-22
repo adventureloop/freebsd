@@ -484,7 +484,7 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 				optlen = ip_len - len;
 				u_char *optp = mtod(m, u_char *) + iphlen + len;
 				udp_dooptions(&uo, optp, optlen);
-				UDPSTAT_INC(udps_optspace);
+				UDPSTAT_INC(udps_ioptspace);
 			}
 			m_adj(m, len - ip_len);
 		}
@@ -1590,6 +1590,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 
 		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + optlen);
 		m->m_pkthdr.csum_flags |= CSUM_UDP_TRAIL;
+		UDPSTAT_INC(udps_ooptspace);
 	} else
 		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len);
 
@@ -1903,6 +1904,7 @@ udp_send_echo(struct socket *so, struct sockaddr *addr)
 
     inp = sotoinpcb(so);
     KASSERT(inp != NULL, ("udp_send: inp == NULL"));
+    UDPSTAT_INC(udps_optecho);
     return (udp_output(inp, m, addr, NULL, &thread0));
 }
 

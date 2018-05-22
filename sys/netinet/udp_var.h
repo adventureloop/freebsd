@@ -99,7 +99,9 @@ struct udpstat {
 	uint64_t udps_fullsock;		/* not delivered, input socket full */
 	uint64_t udpps_pcbcachemiss;	/* input packets missing pcb cache */
 	uint64_t udpps_pcbhashmiss;	/* input packets not for hashed pcb */
-	uint64_t udps_optspace;	/* datagrams with udp option space */
+	uint64_t udps_ooptspace;	/* input datagrams with udp option space */
+	uint64_t udps_ioptspace;	/* output datagrams with udp option space */
+	uint64_t udps_optecho;	/* output udp option echo */
 				/* output statistics: */
 	uint64_t udps_opackets;		/* total output packets */
 	uint64_t udps_fastout;		/* output packets on fast path */
