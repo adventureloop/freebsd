@@ -67,7 +67,6 @@ typedef void(*udp_tun_icmp_t)(int, struct sockaddr *, void *, void *);
 struct udpcb {
 	udp_tun_func_t	u_tun_func;	/* UDP kernel tunneling callback. */
 	udp_tun_icmp_t  u_icmp_func;	/* UDP kernel tunneling icmp callback */
-	struct thread *u_sopt_td;	/* calling thread for ECHO sopt */
 	u_int		u_flags;	/* Generic UDP flags. */
 	uint16_t	u_rxcslen;	/* Coverage for incoming datagrams. */
 	uint16_t	u_txcslen;	/* Coverage for outgoing datagrams. */

@@ -78,7 +78,6 @@ uint8_t udp_optcksum(uint8_t *, int );
 uint16_t udp_optlen(struct udpopt *uo);
 void udp_dooptions(struct udpopt *, u_char *, int );
 int udp_addoptions(struct udpopt *, u_char *, int);
-int udp_send_echo(struct socket *, struct sockaddr *, struct thread *);
 static __inline uint32_t udp_ts_getticks(void);
 
 #endif /* _NETINET_UDP_OPTIONS_H_ */

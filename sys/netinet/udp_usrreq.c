@@ -169,6 +169,7 @@ VNET_PCPUSTAT_SYSUNINIT(udpstat);
 static void	udp_detach(struct socket *so);
 static int	udp_output(struct inpcb *, struct mbuf *, struct sockaddr *,
 		    struct mbuf *, struct thread *);
+static int	udp_send_echo(struct socket *, struct sockaddr *);
 #endif
 
 static void
@@ -749,10 +750,8 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 			/*
 			 * if we are doing echos and have been asked to provide a response
 			 */
-			if ( (uo.uo_flags & UOF_ECHOREQ) && (up->u_sopt_td != NULL) &&
-				(up->u_flags & UF_OPTECHO)) {
-				udp_send_echo(inp->inp_socket, (struct sockaddr *)&udp_in[0], up->u_sopt_td);
-			}
+			if ((uo.uo_flags & UOF_ECHOREQ) && (up->u_flags & UF_OPTECHO))
+				udp_send_echo(inp->inp_socket, (struct sockaddr *)&udp_in[0]);
 		}
 	}
 
@@ -1110,13 +1109,10 @@ udp_ctloutput(struct socket *so, struct sockopt *sopt)
 			INP_WLOCK(inp);
 			up = intoudpcb(inp);
 			KASSERT(up != NULL, ("%s: up == NULL", __func__));
-			if (optval) {
+			if (optval)
 				up->u_flags |= opt;
-				up->u_sopt_td = sopt->sopt_td;
-			} else {
+			else
 				up->u_flags &= ~opt;
-				up->u_sopt_td = NULL;
-			}
 			INP_WUNLOCK(inp);
 			break;
 		default:
@@ -1888,7 +1884,7 @@ udp_disconnect(struct socket *so)
 }
 
 int
-udp_send_echo(struct socket *so, struct sockaddr *addr, struct thread *td)
+udp_send_echo(struct socket *so, struct sockaddr *addr)
 {
     struct inpcb *inp;
     struct mbuf *m;
@@ -1907,7 +1903,7 @@ udp_send_echo(struct socket *so, struct sockaddr *addr, struct thread *td)
 
     inp = sotoinpcb(so);
     KASSERT(inp != NULL, ("udp_send: inp == NULL"));
-    return (udp_output(inp, m, addr, NULL, td));
+    return (udp_output(inp, m, addr, NULL, &thread0));
 }
 
 static int
