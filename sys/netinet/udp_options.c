@@ -2,7 +2,6 @@
  * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
  *
  * Copyright (c) 2018 Tom Jones <tj@enoti.me>
- * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,16 +70,6 @@ __FBSDID("$FreeBSD$");
 void
 udp_dooptions(struct udpopt *uo, u_char *cp, int cnt)
 {
-#if 0
-	printf("Processing %d bytes of UDP Options\n", cnt);	
-	int toggle = 0;
-	for(int i = 0; i < cnt; i++) {
-		printf("%02x ", cp[i]);
-		if(++toggle % 16 == 0)
-			printf("\n");
-	}
-	printf("\n");	
-#endif
 	int opt, optlen;
 	int optionslen;
 	optionslen = cnt;
@@ -100,7 +89,6 @@ udp_dooptions(struct udpopt *uo, u_char *cp, int cnt)
 			uo->uo_flags |= UOF_OCS;
 			uo->uo_ocs = cp[1];
 
-			/* so here we do an 8 bit crc?*/
 			if (udp_optcksum(cp, cnt) != 0) {
 				printf("OCS doesn't pass\n");
 				break;
@@ -260,10 +248,7 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 
 			break;
 		case UOF_TIME:
-	/* all of this should happen somewhere else */
-			uo->uo_tsval = udp_ts_getticks(); //~~does~~ should this be in network byte order?
-			//uo.uo_tsval = tcp_ts_getticks() + tp->ts_offset; TODO: we need to offset the clock value
-			//uo.uo_tsecr = uo->ts_recent; already set up
+			uo->uo_tsval = udp_ts_getticks();
 
 			*optp++ = UDPOPT_TIME;
 			*optp++ = UDPOLEN_TIME;
@@ -281,7 +266,7 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 			*optp++ = UDPOPT_ECHOREQ;
 			*optp++ = UDPOLEN_ECHOREQ;
 
-			uo->uo_echoreq = udp_ts_getticks(); //~~does~~ should this be in network byte order?
+			uo->uo_echoreq = udp_ts_getticks();
 
 			bcopy((u_char *)&uo->uo_echoreq, optp, sizeof(uo->uo_echoreq));
 			optp += sizeof(uo->uo_echoreq);
@@ -310,16 +295,6 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 
 	cp[1] = cksum;
 	optlen++;
-#if 0
-	printf("Adding %d bytes of UDP Options\n", optlen);	
-	int toggle = 0;
-	for(int i = 0; i < optlen; i++) {
-		printf("%02x ", cp[i]);
-		if(++toggle % 16 == 0)
-			printf("\n");
-	}
-	printf("\n");	
-#endif
 	return optlen;
 }
 
