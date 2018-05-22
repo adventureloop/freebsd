@@ -1587,15 +1587,15 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 
 		optlen = udp_addoptions(&uo, opt, optlen);
 		m_append(m, optlen, opt);
-		
+
 		bzero(opt, optlen);
 		free(opt, M_TEMP);
 		opt = NULL;
 
-		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + optlen); 
+		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + optlen);
 		m->m_pkthdr.csum_flags |= CSUM_UDP_TRAIL;
-	} else 
-		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len); 
+	} else
+		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len);
 
 	((struct ip *)ui)->ip_ttl = inp->inp_ip_ttl;	/* XXX */
 	((struct ip *)ui)->ip_tos = tos;		/* XXX */

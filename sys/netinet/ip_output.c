@@ -605,7 +605,7 @@ sendit:
 	}
 
 	m->m_pkthdr.csum_flags |= CSUM_IP;
-	if ((m->m_pkthdr.csum_flags & CSUM_DELAY_DATA & ~ifp->if_hwassist) || 
+	if ((m->m_pkthdr.csum_flags & CSUM_DELAY_DATA & ~ifp->if_hwassist) ||
 		(m->m_pkthdr.csum_flags & CSUM_UDP_TRAIL)) {
 		in_delayed_cksum(m);
 		m->m_pkthdr.csum_flags &= ~CSUM_DELAY_DATA;

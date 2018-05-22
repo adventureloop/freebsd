@@ -133,15 +133,15 @@ udp_dooptions(struct udpopt *uo, u_char *cp, int cnt)
 			uo->uo_tsval = ntohl(uo->uo_tsval);
 			uo->uo_tsecr = ntohl(uo->uo_tsecr);
 
-			if (uo->uo_tsecr != 0) 
+			if (uo->uo_tsecr != 0)
 				uo->uo_rtt = udp_ts_getticks() - uo->uo_tsval;
-			
+
 			continue;
 		case UDPOPT_ECHOREQ:
 			uo->uo_flags |= UOF_ECHOREQ;
 
 			if (optlen != UDPOLEN_ECHOREQ) {
-				printf("ECHOREQ: bad optlen %d\n", optlen);	
+				printf("ECHOREQ: bad optlen %d\n", optlen);
 				continue;
 			}
 
@@ -153,7 +153,7 @@ udp_dooptions(struct udpopt *uo, u_char *cp, int cnt)
 			uo->uo_flags |= UOF_ECHORES;
 
 			if (optlen != UDPOLEN_ECHORES) {
-				printf("ECHORES: bad optlen %d\n", optlen);	
+				printf("ECHORES: bad optlen %d\n", optlen);
 				continue;
 			}
 
@@ -168,14 +168,14 @@ udp_dooptions(struct udpopt *uo, u_char *cp, int cnt)
 			continue;
 #endif
 		default:
-			printf("unknown option %d\n", opt);	
+			printf("unknown option %d\n", opt);
 			continue;
 		}
-	}  
+	}
 }
 
 uint16_t
-udp_optlen(struct udpopt *uo) 
+udp_optlen(struct udpopt *uo)
 {
 	uint32_t mask;
 	uint16_t fixedlen = 0;
