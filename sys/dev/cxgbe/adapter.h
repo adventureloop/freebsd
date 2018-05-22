@@ -371,7 +371,7 @@ enum {
 	CPL_COOKIE_DDP0,
 	CPL_COOKIE_DDP1,
 	CPL_COOKIE_TOM,
-	CPL_COOKIE_AVAILABLE1,
+	CPL_COOKIE_HASHFILTER,
 	CPL_COOKIE_AVAILABLE2,
 	CPL_COOKIE_AVAILABLE3,
 
@@ -1236,6 +1236,15 @@ int t4_free_tx_sched(struct adapter *);
 void t4_update_tx_sched(struct adapter *);
 int t4_reserve_cl_rl_kbps(struct adapter *, int, u_int, int *);
 void t4_release_cl_rl_kbps(struct adapter *, int, int);
+#ifdef RATELIMIT
+void t4_init_etid_table(struct adapter *);
+void t4_free_etid_table(struct adapter *);
+int cxgbe_snd_tag_alloc(struct ifnet *, union if_snd_tag_alloc_params *,
+    struct m_snd_tag **);
+int cxgbe_snd_tag_modify(struct m_snd_tag *, union if_snd_tag_modify_params *);
+int cxgbe_snd_tag_query(struct m_snd_tag *, union if_snd_tag_query_params *);
+void cxgbe_snd_tag_free(struct m_snd_tag *);
+#endif
 
 /* t4_filter.c */
 int get_filter_mode(struct adapter *, uint32_t *);
@@ -1244,6 +1253,9 @@ int get_filter(struct adapter *, struct t4_filter *);
 int set_filter(struct adapter *, struct t4_filter *);
 int del_filter(struct adapter *, struct t4_filter *);
 int t4_filter_rpl(struct sge_iq *, const struct rss_header *, struct mbuf *);
+int t4_hashfilter_ao_rpl(struct sge_iq *, const struct rss_header *, struct mbuf *);
+int t4_hashfilter_tcb_rpl(struct sge_iq *, const struct rss_header *, struct mbuf *);
+int t4_del_hashfilter_rpl(struct sge_iq *, const struct rss_header *, struct mbuf *);
 
 static inline struct wrqe *
 alloc_wrqe(int wr_len, struct sge_wrq *wrq)

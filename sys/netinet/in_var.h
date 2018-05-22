@@ -80,7 +80,7 @@ struct in_ifaddr {
 	u_long	ia_subnet;		/* subnet address */
 	u_long	ia_subnetmask;		/* mask of subnet */
 	LIST_ENTRY(in_ifaddr) ia_hash;	/* entry in bucket of inet addresses */
-	TAILQ_ENTRY(in_ifaddr) ia_link;	/* list of internet addresses */
+	CK_STAILQ_ENTRY(in_ifaddr) ia_link;	/* list of internet addresses */
 	struct	sockaddr_in ia_addr;	/* reserve space for interface name */
 	struct	sockaddr_in ia_dstaddr; /* reserve space for broadcast addr */
 #define	ia_broadaddr	ia_dstaddr
@@ -107,7 +107,7 @@ extern	u_char	inetctlerrmap[];
 /*
  * Hash table for IP addresses.
  */
-TAILQ_HEAD(in_ifaddrhead, in_ifaddr);
+CK_STAILQ_HEAD(in_ifaddrhead, in_ifaddr);
 LIST_HEAD(in_ifaddrhashhead, in_ifaddr);
 
 VNET_DECLARE(struct in_ifaddrhashhead *, in_ifaddrhashtbl);
@@ -172,9 +172,9 @@ do { \
 	/* struct rm_priotracker *t; */					\
 do {									\
 	IN_IFADDR_RLOCK((t));						\
-	for ((ia) = TAILQ_FIRST(&V_in_ifaddrhead);			\
+	for ((ia) = CK_STAILQ_FIRST(&V_in_ifaddrhead);			\
 	    (ia) != NULL && (ia)->ia_ifp != (ifp);			\
-	    (ia) = TAILQ_NEXT((ia), ia_link))				\
+	    (ia) = CK_STAILQ_NEXT((ia), ia_link))				\
 		continue;						\
 	if ((ia) != NULL)						\
 		ifa_ref(&(ia)->ia_ifa);					\
@@ -343,6 +343,9 @@ extern struct sx in_multi_sx;
 #define	IN_MULTI_LOCK_ASSERT()	sx_assert(&in_multi_sx, SA_XLOCKED)
 #define	IN_MULTI_UNLOCK_ASSERT() sx_assert(&in_multi_sx, SA_XUNLOCKED)
 
+void inm_disconnect(struct in_multi *inm);
+extern int ifma_restart;
+
 /* Acquire an in_multi record. */
 static __inline void
 inm_acquire_locked(struct in_multi *inm)
@@ -368,6 +371,7 @@ inm_rele_locked(struct in_multi_head *inmh, struct in_multi *inm)
 
 	if (--inm->inm_refcount == 0) {
 		MPASS(inmh != NULL);
+		inm_disconnect(inm);
 		inm->inm_ifma->ifma_protospec = NULL;
 		SLIST_INSERT_HEAD(inmh, inm, inm_nrele);
 	}
