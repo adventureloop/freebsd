@@ -6,7 +6,7 @@ COMMON ITEMS: section later in the file.  These instructions assume that you
 basically know what you are doing.  If not, then please consult the FreeBSD
 handbook:
 
-    https://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/current-stable.html
+    https://www.freebsd.org/doc/en_US.ISO8859-1/books/handbook/makeworld.html
 
 Items affecting the ports and packages system can be found in
 /usr/ports/UPDATING.  Please read that file before running portupgrade.
@@ -31,25 +31,45 @@ NOTE TO PEOPLE WHO THINK THAT FreeBSD 12.x IS SLOW:
 	disable the most expensive debugging functionality run
 	"ln -s 'abort:false,junk:false' /etc/malloc.conf".)
 
+20180702:
+	On i386 and amd64 atomics are now inlined. Out of tree modules using
+	atomics will need to be rebuilt.
 
-****************************** SPECIAL WARNING: ******************************
+20180701:
+	The '%I' format in the kern.corefile sysctl limits the number of
+	core files that a process can generate to the number stored in the
+	debug.ncores sysctl. The '%I' format is replaced by the single digit
+	index. Previously, if all indexes were taken the kernel would overwrite
+	only a core file with the highest index in a filename.
+	Currently the system will create a new core file if there is a free
+	index or if all slots are taken it will overwrite the oldest one.
 
-	Due to a bug in some versions of clang that's very hard to workaround in
-	the upgrade process, to upgrade to -current you must first upgrade
-	either stable/9 after r286035 or stable/10 after r286033 (including
-	10.3-RELEASE) or current after r286007 (including stable/11 and
-	11.0-RELEASE). These revisions post-date the 10.2 and 9.3 releases, so
-	you'll need to take the unusual step of upgrading to the tip of the
-	stable branch before moving to 11 or -current via a source upgrade.
-	stable/11 and 11.0-RELEASE have working newer compiler. This differs
-	from the historical situation where one could upgrade from anywhere on
-	the last couple of stable branches, so be careful.
+20180630:
+	Clang, llvm, lld, lldb, compiler-rt and libc++ have been upgraded to
+	6.0.1.  Please see the 20141231 entry below for information about
+	prerequisites and upgrading, if you are not already using clang 3.5.0
+	or higher.
 
-	If you're running a hybrid system on 9.x or 10.x with an updated clang
-	compiler or are using an supported external toolchain, the build system
-	will allow the upgrade. Otherwise it will print a reminder.
+20180628:
+	r335753 introduced a new quoting method. However, etc/devd/devmatch.conf
+	needed to be changed to work with it. This change was made with r335763
+	and requires a mergemaster / etcupdate / etc to update the installed file.
 
-****************************** SPECIAL WARNING: ******************************
+20180612:
+	r334930 changed the interface between the NFS modules, so they all
+	need to be rebuilt.  r335018 did a __FreeBSD_version bump for this.
+
+20180530:
+	The kernel / userland interface for devinfo changed, so you'll
+	need a new kernel and userland as a pair for it to work (rebuilding
+	lib/libdevinfo is all that's required). devinfo and devmatch will
+	not work, but everything else will when there's a mismatch.
+
+20180523:
+	The on-disk format for hwpmc callchain records has changed to include
+	threadid corresponding to a given record. This changes the field offsets
+	and thus requires that libpmcstat be rebuilt before using a kernel
+	later than r334108.
 
 20180517:
 	The vxge(4) driver has been removed.  This driver was introduced into

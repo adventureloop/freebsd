@@ -118,14 +118,14 @@ static void vm_loop(struct vmctx *ctx, int vcpu, uint64_t rip);
 static struct vm_exit vmexit[VM_MAXCPU];
 
 struct bhyvestats {
-        uint64_t        vmexit_bogus;
+	uint64_t	vmexit_bogus;
 	uint64_t	vmexit_reqidle;
-        uint64_t        vmexit_hlt;
-        uint64_t        vmexit_pause;
-        uint64_t        vmexit_mtrap;
-        uint64_t        vmexit_inst_emul;
-        uint64_t        cpu_switch_rotate;
-        uint64_t        cpu_switch_direct;
+	uint64_t	vmexit_hlt;
+	uint64_t	vmexit_pause;
+	uint64_t	vmexit_mtrap;
+	uint64_t	vmexit_inst_emul;
+	uint64_t	cpu_switch_rotate;
+	uint64_t	cpu_switch_direct;
 } stats;
 
 struct mt_vmm_info {
@@ -193,6 +193,8 @@ topology_parse(const char *opt)
 	c = 1, n = 1, s = 1, t = 1;
 	ns = false, scts = false;
 	str = strdup(opt);
+	if (str == NULL)
+		goto out;
 
 	while ((cp = strsep(&str, ",")) != NULL) {
 		if (sscanf(cp, "%i%n", &tmp, &chk) == 1) {
@@ -218,11 +220,14 @@ topology_parse(const char *opt)
 		} else if (cp[0] == '\0')
 			continue;
 		else
-			return (-1);
+			goto out;
 		/* Any trailing garbage causes an error */
 		if (cp[chk] != '\0')
-			return (-1);
+			goto out;
 	}
+	free(str);
+	str = NULL;
+
 	/*
 	 * Range check 1 <= n <= UINT16_MAX all values
 	 */
@@ -248,6 +253,10 @@ topology_parse(const char *opt)
 	cores = c;
 	threads = t;
 	return(0);
+
+out:
+	free(str);
+	return (-1);
 }
 
 static int
@@ -404,7 +413,7 @@ vmexit_handle_notify(struct vmctx *ctx, struct vm_exit *vme, int *pvcpu,
 	 * put guest-driven debug here
 	 */
 #endif
-        return (VMEXIT_CONTINUE);
+	return (VMEXIT_CONTINUE);
 }
 
 static int
@@ -1105,7 +1114,7 @@ main(int argc, char *argv[])
 	if (caph_limit_stdout() == -1 || caph_limit_stderr() == -1)
 		errx(EX_OSERR, "Unable to apply rights for sandbox");
 
-	if (cap_enter() == -1 && errno != ENOSYS)
+	if (caph_enter() == -1)
 		errx(EX_OSERR, "cap_enter() failed");
 #endif
 

@@ -187,7 +187,7 @@
 	movq	PCPU(KCR3),%rax
 	movq	%rax,%cr3
 	movq	PCPU(RSP0),%rax
-	subq	$PTI_SIZE,%rax
+	subq	$PTI_SIZE - 8 * (1 - \has_err),%rax
 	MOVE_STACKS	((PTI_SIZE / 8) - 1 + \has_err)
 	movq	%rax,%rsp
 	popq	%rdx
@@ -260,6 +260,7 @@ X\vec_name:
 	jz	1f		/* yes, leave PCB_FULL_IRET alone */
 	movq	PCPU(CURPCB),%r8
 	andl	$~PCB_FULL_IRET,PCB_FLAGS(%r8)
+	call	handle_ibrs_entry
 1:
 	.endm
 

@@ -51,6 +51,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/bus.h>
 #include <sys/random.h>
 #include <sys/rman.h>
+#include <sys/sbuf.h>
 #include <sys/selinfo.h>
 #include <sys/signalvar.h>
 #include <sys/smp.h>
@@ -58,7 +59,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/systm.h>
 #include <sys/uio.h>
 #include <sys/bus.h>
-#include <sys/interrupt.h>
 #include <sys/cpuset.h>
 
 #include <net/vnet.h>
@@ -859,27 +859,18 @@ sysctl_devctl_queue(SYSCTL_HANDLER_ARGS)
  * Strings are always terminated with a NUL, but may be truncated if longer
  * than @p len bytes after quotes.
  *
- * @param dst	Buffer to hold the string. Must be at least @p len bytes long
+ * @param sb	sbuf to place the characters into
  * @param src	Original buffer.
- * @param len	Length of buffer pointed to by @dst, including trailing NUL
  */
 void
-devctl_safe_quote(char *dst, const char *src, size_t len)
+devctl_safe_quote_sb(struct sbuf *sb, const char *src)
 {
-	char *walker = dst, *ep = dst + len - 1;
 
-	if (len == 0)
-		return;
-	while (src != NULL && walker < ep)
-	{
-		if (*src == '"' || *src == '\\') {
-			if (ep - walker < 2)
-				break;
-			*walker++ = '\\';
-		}
-		*walker++ = *src++;
+	while (*src != '\0') {
+		if (*src == '"' || *src == '\\')
+			sbuf_putc(sb, '\\');
+		sbuf_putc(sb, *src++);
 	}
-	*walker = '\0';
 }
 
 /* End of /dev/devctl code */
@@ -5264,8 +5255,9 @@ sysctl_devices(SYSCTL_HANDLER_ARGS)
 	u_int			namelen = arg2;
 	int			index;
 	device_t		dev;
-	struct u_device		udev;	/* XXX this is a bit big */
+	struct u_device		*udev;
 	int			error;
+	char			*walker, *ep;
 
 	if (namelen != 2)
 		return (EINVAL);
@@ -5286,24 +5278,45 @@ sysctl_devices(SYSCTL_HANDLER_ARGS)
 		return (ENOENT);
 
 	/*
-	 * Populate the return array.
+	 * Populate the return item, careful not to overflow the buffer.
 	 */
-	bzero(&udev, sizeof(udev));
-	udev.dv_handle = (uintptr_t)dev;
-	udev.dv_parent = (uintptr_t)dev->parent;
-	if (dev->nameunit != NULL)
-		strlcpy(udev.dv_name, dev->nameunit, sizeof(udev.dv_name));
-	if (dev->desc != NULL)
-		strlcpy(udev.dv_desc, dev->desc, sizeof(udev.dv_desc));
-	if (dev->driver != NULL && dev->driver->name != NULL)
-		strlcpy(udev.dv_drivername, dev->driver->name,
-		    sizeof(udev.dv_drivername));
-	bus_child_pnpinfo_str(dev, udev.dv_pnpinfo, sizeof(udev.dv_pnpinfo));
-	bus_child_location_str(dev, udev.dv_location, sizeof(udev.dv_location));
-	udev.dv_devflags = dev->devflags;
-	udev.dv_flags = dev->flags;
-	udev.dv_state = dev->state;
-	error = SYSCTL_OUT(req, &udev, sizeof(udev));
+	udev = malloc(sizeof(*udev), M_BUS, M_WAITOK | M_ZERO);
+	if (udev == NULL)
+		return (ENOMEM);
+	udev->dv_handle = (uintptr_t)dev;
+	udev->dv_parent = (uintptr_t)dev->parent;
+	udev->dv_devflags = dev->devflags;
+	udev->dv_flags = dev->flags;
+	udev->dv_state = dev->state;
+	walker = udev->dv_fields;
+	ep = walker + sizeof(udev->dv_fields);
+#define CP(src)						\
+	if ((src) == NULL)				\
+		*walker++ = '\0';			\
+	else {						\
+		strlcpy(walker, (src), ep - walker);	\
+		walker += strlen(walker) + 1;		\
+	}						\
+	if (walker >= ep)				\
+		break;
+
+	do {
+		CP(dev->nameunit);
+		CP(dev->desc);
+		CP(dev->driver != NULL ? dev->driver->name : NULL);
+		bus_child_pnpinfo_str(dev, walker, ep - walker);
+		walker += strlen(walker) + 1;
+		if (walker >= ep)
+			break;
+		bus_child_location_str(dev, walker, ep - walker);
+		walker += strlen(walker) + 1;
+		if (walker >= ep)
+			break;
+		*walker++ = '\0';
+	} while (0);
+#undef CP
+	error = SYSCTL_OUT(req, udev, sizeof(*udev));
+	free(udev, M_BUS);
 	return (error);
 }
 

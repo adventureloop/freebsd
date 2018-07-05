@@ -239,6 +239,63 @@ static void fw_asrt(struct adapter *adap, struct fw_debug_cmd *asrt)
 		  be32_to_cpu(asrt->u.assert.y));
 }
 
+struct port_tx_state {
+	uint64_t rx_pause;
+	uint64_t tx_frames;
+};
+
+static void
+read_tx_state_one(struct adapter *sc, int i, struct port_tx_state *tx_state)
+{
+	uint32_t rx_pause_reg, tx_frames_reg;
+
+	if (is_t4(sc)) {
+		tx_frames_reg = PORT_REG(i, A_MPS_PORT_STAT_TX_PORT_FRAMES_L);
+		rx_pause_reg = PORT_REG(i, A_MPS_PORT_STAT_RX_PORT_PAUSE_L);
+	} else {
+		tx_frames_reg = T5_PORT_REG(i, A_MPS_PORT_STAT_TX_PORT_FRAMES_L);
+		rx_pause_reg = T5_PORT_REG(i, A_MPS_PORT_STAT_RX_PORT_PAUSE_L);
+	}
+
+	tx_state->rx_pause = t4_read_reg64(sc, rx_pause_reg);
+	tx_state->tx_frames = t4_read_reg64(sc, tx_frames_reg);
+}
+
+static void
+read_tx_state(struct adapter *sc, struct port_tx_state *tx_state)
+{
+	int i;
+
+	for_each_port(sc, i)
+		read_tx_state_one(sc, i, &tx_state[i]);
+}
+
+static void
+check_tx_state(struct adapter *sc, struct port_tx_state *tx_state)
+{
+	uint32_t port_ctl_reg;
+	uint64_t tx_frames, rx_pause;
+	int i;
+
+	for_each_port(sc, i) {
+		rx_pause = tx_state[i].rx_pause;
+		tx_frames = tx_state[i].tx_frames;
+		read_tx_state_one(sc, i, &tx_state[i]);	/* update */
+
+		if (is_t4(sc))
+			port_ctl_reg = PORT_REG(i, A_MPS_PORT_CTL);
+		else
+			port_ctl_reg = T5_PORT_REG(i, A_MPS_PORT_CTL);
+		if (t4_read_reg(sc, port_ctl_reg) & F_PORTTXEN &&
+		    rx_pause != tx_state[i].rx_pause &&
+		    tx_frames == tx_state[i].tx_frames) {
+			t4_set_reg_field(sc, port_ctl_reg, F_PORTTXEN, 0);
+			mdelay(1);
+			t4_set_reg_field(sc, port_ctl_reg, F_PORTTXEN, F_PORTTXEN);
+		}
+	}
+}
+
 #define X_CIM_PF_NOACCESS 0xeeeeeeee
 /**
  *	t4_wr_mbox_meat_timeout - send a command to FW through the given mailbox
@@ -280,13 +337,14 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
 	};
 	u32 v;
 	u64 res;
-	int i, ms, delay_idx, ret;
+	int i, ms, delay_idx, ret, next_tx_check;
 	const __be64 *p = cmd;
 	u32 data_reg = PF_REG(mbox, A_CIM_PF_MAILBOX_DATA);
 	u32 ctl_reg = PF_REG(mbox, A_CIM_PF_MAILBOX_CTRL);
 	u32 ctl;
 	__be64 cmd_rpl[MBOX_LEN/8];
 	u32 pcie_fw;
+	struct port_tx_state tx_state[MAX_NPORTS];
 
 	if (adap->flags & CHK_MBOX_ACCESS)
 		ASSERT_SYNCHRONIZED_OP(adap);
@@ -375,8 +433,8 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
 	CH_DUMP_MBOX(adap, mbox, data_reg);
 
 	t4_write_reg(adap, ctl_reg, F_MBMSGVALID | V_MBOWNER(X_MBOWNER_FW));
-	t4_read_reg(adap, ctl_reg);	/* flush write */
-
+	read_tx_state(adap, &tx_state[0]);	/* also flushes the write_reg */
+	next_tx_check = 1000;
 	delay_idx = 0;
 	ms = delay[0];
 
@@ -391,6 +449,12 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
 			if (pcie_fw & F_PCIE_FW_ERR)
 				break;
 		}
+
+		if (i >= next_tx_check) {
+			check_tx_state(adap, &tx_state[0]);
+			next_tx_check = i + 1000;
+		}
+
 		if (sleep_ok) {
 			ms = delay[delay_idx];  /* last element may repeat */
 			if (delay_idx < ARRAY_SIZE(delay) - 1)
@@ -3727,20 +3791,23 @@ int t4_link_l1cfg(struct adapter *adap, unsigned int mbox, unsigned int port,
 	    lc->requested_aneg == AUTONEG_DISABLE) {
 		aneg = 0;
 		switch (lc->requested_speed) {
-		case 100:
+		case 100000:
 			speed = FW_PORT_CAP_SPEED_100G;
 			break;
-		case 40:
+		case 40000:
 			speed = FW_PORT_CAP_SPEED_40G;
 			break;
-		case 25:
+		case 25000:
 			speed = FW_PORT_CAP_SPEED_25G;
 			break;
-		case 10:
+		case 10000:
 			speed = FW_PORT_CAP_SPEED_10G;
 			break;
-		case 1:
+		case 1000:
 			speed = FW_PORT_CAP_SPEED_1G;
+			break;
+		case 100:
+			speed = FW_PORT_CAP_SPEED_100M;
 			break;
 		default:
 			return -EINVAL;
@@ -7715,9 +7782,9 @@ static void handle_port_info(struct port_info *pi, const struct fw_port_info *p)
 
 	fec = 0;
 	if (lc->advertising & FW_PORT_CAP_FEC_RS)
-		fec |= FEC_RS;
-	if (lc->advertising & FW_PORT_CAP_FEC_BASER_RS)
-		fec |= FEC_BASER_RS;
+		fec = FEC_RS;
+	else if (lc->advertising & FW_PORT_CAP_FEC_BASER_RS)
+		fec = FEC_BASER_RS;
 	lc->fec = fec;
 }
 
@@ -7778,14 +7845,16 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
 		}
 
 		lc = &pi->link_cfg;
+		PORT_LOCK(pi);
 		old_lc = &pi->old_link_cfg;
 		old_ptype = pi->port_type;
 		old_mtype = pi->mod_type;
-
 		handle_port_info(pi, &p->u.info);
+		PORT_UNLOCK(pi);
 		if (old_ptype != pi->port_type || old_mtype != pi->mod_type) {
 			t4_os_portmod_changed(pi);
 		}
+		PORT_LOCK(pi);
 		if (old_lc->link_ok != lc->link_ok ||
 		    old_lc->speed != lc->speed ||
 		    old_lc->fec != lc->fec ||
@@ -7793,6 +7862,7 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
 			t4_os_link_changed(pi);
 			*old_lc = *lc;
 		}
+		PORT_UNLOCK(pi);
 	} else {
 		CH_WARN_RATELIMIT(adap, "Unknown firmware reply %d\n", opcode);
 		return -EINVAL;

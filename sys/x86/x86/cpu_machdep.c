@@ -41,6 +41,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_acpi.h"
 #include "opt_atpic.h"
 #include "opt_cpu.h"
 #include "opt_ddb.h"
@@ -69,9 +70,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/pcpu.h>
 #include <sys/rwlock.h>
 #include <sys/sched.h>
-#ifdef SMP
 #include <sys/smp.h>
-#endif
 #include <sys/sysctl.h>
 
 #include <machine/clock.h>
@@ -99,6 +98,8 @@ __FBSDID("$FreeBSD$");
 #include <vm/vm_param.h>
 
 #include <isa/isareg.h>
+
+#include <contrib/dev/acpica/include/acpi.h>
 
 #define	STATE_RUNNING	0x0
 #define	STATE_MWAIT	0x1
@@ -150,6 +151,7 @@ void
 acpi_cpu_idle_mwait(uint32_t mwait_hint)
 {
 	int *state;
+	uint64_t v;
 
 	/*
 	 * A comment in Linux patch claims that 'CPUs run faster with
@@ -166,11 +168,24 @@ acpi_cpu_idle_mwait(uint32_t mwait_hint)
 	KASSERT(atomic_load_int(state) == STATE_SLEEPING,
 	    ("cpu_mwait_cx: wrong monitorbuf state"));
 	atomic_store_int(state, STATE_MWAIT);
-	handle_ibrs_exit();
+	if (PCPU_GET(ibpb_set) || hw_ssb_active) {
+		v = rdmsr(MSR_IA32_SPEC_CTRL);
+		wrmsr(MSR_IA32_SPEC_CTRL, v & ~(IA32_SPEC_CTRL_IBRS |
+		    IA32_SPEC_CTRL_STIBP | IA32_SPEC_CTRL_SSBD));
+	} else {
+		v = 0;
+	}
 	cpu_monitor(state, 0, 0);
 	if (atomic_load_int(state) == STATE_MWAIT)
 		cpu_mwait(MWAIT_INTRBREAK, mwait_hint);
-	handle_ibrs_entry();
+
+	/*
+	 * SSB cannot be disabled while we sleep, or rather, if it was
+	 * disabled, the sysctl thread will bind to our cpu to tweak
+	 * MSR.
+	 */
+	if (v != 0)
+		wrmsr(MSR_IA32_SPEC_CTRL, v);
 
 	/*
 	 * We should exit on any event that interrupts mwait, because
@@ -711,7 +726,7 @@ SYSINIT(cpu_idle_tun, SI_SUB_CPU, SI_ORDER_MIDDLE, cpu_idle_tun, NULL);
 static int panic_on_nmi = 1;
 SYSCTL_INT(_machdep, OID_AUTO, panic_on_nmi, CTLFLAG_RWTUN,
     &panic_on_nmi, 0,
-    "Panic on NMI");
+    "Panic on NMI raised by hardware failure");
 int nmi_is_broadcast = 1;
 SYSCTL_INT(_machdep, OID_AUTO, nmi_is_broadcast, CTLFLAG_RWTUN,
     &nmi_is_broadcast, 0,
@@ -720,36 +735,37 @@ SYSCTL_INT(_machdep, OID_AUTO, nmi_is_broadcast, CTLFLAG_RWTUN,
 int kdb_on_nmi = 1;
 SYSCTL_INT(_machdep, OID_AUTO, kdb_on_nmi, CTLFLAG_RWTUN,
     &kdb_on_nmi, 0,
-    "Go to KDB on NMI");
+    "Go to KDB on NMI with unknown source");
 #endif
 
-#ifdef DEV_ISA
 void
 nmi_call_kdb(u_int cpu, u_int type, struct trapframe *frame)
 {
+	bool claimed = false;
 
+#ifdef DEV_ISA
 	/* machine/parity/power fail/"kitchen sink" faults */
-	if (isa_nmi(frame->tf_err) == 0) {
+	if (isa_nmi(frame->tf_err)) {
+		claimed = true;
+		if (panic_on_nmi)
+			panic("NMI indicates hardware failure");
+	}
+#endif /* DEV_ISA */
 #ifdef KDB
+	if (!claimed && kdb_on_nmi) {
 		/*
 		 * NMI can be hooked up to a pushbutton for debugging.
 		 */
-		if (kdb_on_nmi) {
-			printf("NMI/cpu%d ... going to debugger\n", cpu);
-			kdb_trap(type, 0, frame);
-		}
-#endif /* KDB */
-	} else if (panic_on_nmi) {
-		panic("NMI indicates hardware failure");
+		printf("NMI/cpu%d ... going to debugger\n", cpu);
+		kdb_trap(type, 0, frame);
 	}
+#endif /* KDB */
 }
-#endif
 
 void
 nmi_handle_intr(u_int type, struct trapframe *frame)
 {
 
-#ifdef DEV_ISA
 #ifdef SMP
 	if (nmi_is_broadcast) {
 		nmi_call_kdb_smp(type, frame);
@@ -757,7 +773,6 @@ nmi_handle_intr(u_int type, struct trapframe *frame)
 	}
 #endif
 	nmi_call_kdb(PCPU_GET(cpuid), type, frame);
-#endif
 }
 
 int hw_ibrs_active;
@@ -804,6 +819,95 @@ SYSCTL_PROC(_hw, OID_AUTO, ibrs_disable, CTLTYPE_INT | CTLFLAG_RWTUN |
     CTLFLAG_NOFETCH | CTLFLAG_MPSAFE, NULL, 0, hw_ibrs_disable_handler, "I",
     "Disable Indirect Branch Restricted Speculation");
 
+int hw_ssb_active;
+int hw_ssb_disable;
+
+SYSCTL_INT(_hw, OID_AUTO, spec_store_bypass_disable_active, CTLFLAG_RD,
+    &hw_ssb_active, 0,
+    "Speculative Store Bypass Disable active");
+
+static void
+hw_ssb_set_one(bool enable)
+{
+	uint64_t v;
+
+	v = rdmsr(MSR_IA32_SPEC_CTRL);
+	if (enable)
+		v |= (uint64_t)IA32_SPEC_CTRL_SSBD;
+	else
+		v &= ~(uint64_t)IA32_SPEC_CTRL_SSBD;
+	wrmsr(MSR_IA32_SPEC_CTRL, v);
+}
+
+static void
+hw_ssb_set(bool enable, bool for_all_cpus)
+{
+	struct thread *td;
+	int bound_cpu, i, is_bound;
+
+	if ((cpu_stdext_feature3 & CPUID_STDEXT3_SSBD) == 0) {
+		hw_ssb_active = 0;
+		return;
+	}
+	hw_ssb_active = enable;
+	if (for_all_cpus) {
+		td = curthread;
+		thread_lock(td);
+		is_bound = sched_is_bound(td);
+		bound_cpu = td->td_oncpu;
+		CPU_FOREACH(i) {
+			sched_bind(td, i);
+			hw_ssb_set_one(enable);
+		}
+		if (is_bound)
+			sched_bind(td, bound_cpu);
+		else
+			sched_unbind(td);
+		thread_unlock(td);
+	} else {
+		hw_ssb_set_one(enable);
+	}
+}
+
+void
+hw_ssb_recalculate(bool all_cpus)
+{
+
+	switch (hw_ssb_disable) {
+	default:
+		hw_ssb_disable = 0;
+		/* FALLTHROUGH */
+	case 0: /* off */
+		hw_ssb_set(false, all_cpus);
+		break;
+	case 1: /* on */
+		hw_ssb_set(true, all_cpus);
+		break;
+	case 2: /* auto */
+		hw_ssb_set((cpu_ia32_arch_caps & IA32_ARCH_CAP_SSBD_NO) != 0 ?
+		    false : true, all_cpus);
+		break;
+	}
+}
+
+static int
+hw_ssb_disable_handler(SYSCTL_HANDLER_ARGS)
+{
+	int error, val;
+
+	val = hw_ssb_disable;
+	error = sysctl_handle_int(oidp, &val, 0, req);
+	if (error != 0 || req->newptr == NULL)
+		return (error);
+	hw_ssb_disable = val;
+	hw_ssb_recalculate(true);
+	return (0);
+}
+SYSCTL_PROC(_hw, OID_AUTO, spec_store_bypass_disable, CTLTYPE_INT |
+    CTLFLAG_RWTUN | CTLFLAG_NOFETCH | CTLFLAG_MPSAFE, NULL, 0,
+    hw_ssb_disable_handler, "I",
+    "Speculative Store Bypass Disable (0 - off, 1 - on, 2 - auto");
+
 /*
  * Enable and restore kernel text write permissions.
  * Callers must ensure that disable_wp()/restore_wp() are executed
@@ -829,3 +933,23 @@ restore_wp(bool old_wp)
 		load_cr0(rcr0() | CR0_WP);
 }
 
+bool
+acpi_get_fadt_bootflags(uint16_t *flagsp)
+{
+#ifdef DEV_ACPI
+	ACPI_TABLE_FADT *fadt;
+	vm_paddr_t physaddr;
+
+	physaddr = acpi_find_table(ACPI_SIG_FADT);
+	if (physaddr == 0)
+		return (false);
+	fadt = acpi_map_table(physaddr, ACPI_SIG_FADT);
+	if (fadt == NULL)
+		return (false);
+	*flagsp = fadt->BootFlags;
+	acpi_unmap_table(fadt);
+	return (true);
+#else
+	return (false);
+#endif
+}

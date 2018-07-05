@@ -80,12 +80,12 @@ enum {
 };
 
 #define	PHONE_DEFAULT_VENDOR_ID		USB_TEMPLATE_VENDOR
-#define	PHONE_DEFAULT_PRODUCT_ID	0xb001
+#define	PHONE_DEFAULT_PRODUCT_ID	0x05dc
 #define	PHONE_DEFAULT_MIXER		"Mixer interface"
 #define	PHONE_DEFAULT_RECORD		"Record interface"
 #define	PHONE_DEFAULT_PLAYBACK		"Playback interface"
 #define	PHONE_DEFAULT_HID		"HID interface"
-#define	PHONE_DEFAULT_MANUFACTURER	"FreeBSD foundation"
+#define	PHONE_DEFAULT_MANUFACTURER	USB_TEMPLATE_MANUFACTURER
 #define	PHONE_DEFAULT_PRODUCT		"USB Phone Device"
 #define	PHONE_DEFAULT_SERIAL_NUMBER	"March 2008"
 
@@ -347,8 +347,8 @@ static const struct usb_temp_interface_desc *phone_interfaces[] = {
 
 static const struct usb_temp_config_desc phone_config_desc = {
 	.ppIfaceDesc = phone_interfaces,
-	.bmAttributes = UC_BUS_POWERED,
-	.bMaxPower = 25,		/* 50 mA */
+	.bmAttributes = 0,
+	.bMaxPower = 0,
 	.iConfiguration = PHONE_PRODUCT_INDEX,
 };
 

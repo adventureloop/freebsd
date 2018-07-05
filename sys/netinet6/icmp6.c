@@ -1677,7 +1677,7 @@ ni6_addrs(struct icmp6_nodeinfo *ni6, struct mbuf *m, struct ifnet **ifpp,
 	}
 
 	IFNET_RLOCK_NOSLEEP();
-	TAILQ_FOREACH(ifp, &V_ifnet, if_link) {
+	CK_STAILQ_FOREACH(ifp, &V_ifnet, if_link) {
 		addrsofif = 0;
 		IF_ADDR_RLOCK(ifp);
 		CK_STAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
@@ -1761,10 +1761,10 @@ ni6_store_addrs(struct icmp6_nodeinfo *ni6, struct icmp6_nodeinfo *nni6,
 		return (0);	/* needless to copy */
 
 	IFNET_RLOCK_NOSLEEP();
-	ifp = ifp0 ? ifp0 : TAILQ_FIRST(&V_ifnet);
+	ifp = ifp0 ? ifp0 : CK_STAILQ_FIRST(&V_ifnet);
   again:
 
-	for (; ifp; ifp = TAILQ_NEXT(ifp, if_link)) {
+	for (; ifp; ifp = CK_STAILQ_NEXT(ifp, if_link)) {
 		IF_ADDR_RLOCK(ifp);
 		CK_STAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
 			if (ifa->ifa_addr->sa_family != AF_INET6)
@@ -1896,6 +1896,7 @@ icmp6_rip6_input(struct mbuf **mp, int off)
 	struct inpcb *last = NULL;
 	struct sockaddr_in6 fromsa;
 	struct icmp6_hdr *icmp6;
+	struct epoch_tracker et;
 	struct mbuf *opts = NULL;
 
 #ifndef PULLDOWN_TEST
@@ -1922,8 +1923,8 @@ icmp6_rip6_input(struct mbuf **mp, int off)
 		return (IPPROTO_DONE);
 	}
 
-	INP_INFO_RLOCK(&V_ripcbinfo);
-	LIST_FOREACH(in6p, &V_ripcb, inp_list) {
+	INP_INFO_RLOCK_ET(&V_ripcbinfo, et);
+	CK_LIST_FOREACH(in6p, &V_ripcb, inp_list) {
 		if ((in6p->inp_vflag & INP_IPV6) == 0)
 			continue;
 		if (in6p->inp_ip_p != IPPROTO_ICMPV6)
@@ -2000,7 +2001,7 @@ icmp6_rip6_input(struct mbuf **mp, int off)
 		}
 		last = in6p;
 	}
-	INP_INFO_RUNLOCK(&V_ripcbinfo);
+	INP_INFO_RUNLOCK_ET(&V_ripcbinfo, et);
 	if (last != NULL) {
 		if (last->inp_flags & INP_CONTROLOPTS)
 			ip6_savecontrol(last, m, &opts);

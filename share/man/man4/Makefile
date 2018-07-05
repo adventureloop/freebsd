@@ -309,6 +309,7 @@ MAN=	aac.4 \
 	msk.4 \
 	mtio.4 \
 	multicast.4 \
+	muge.4 \
 	mvs.4 \
 	mwl.4 \
 	mwlfw.4 \
@@ -445,6 +446,7 @@ MAN=	aac.4 \
 	rights.4 \
 	${_rk_gpio.4} \
 	${_rk_grf.4} \
+	${_rk_i2c.4} \
 	${_rk_pinctrl.4} \
 	rl.4 \
 	rndtest.4 \
@@ -764,6 +766,7 @@ MLINKS+=xl.4 if_xl.4
 _armv8crypto.4=	armv8crypto.4
 _rk_gpio.4=	rk_gpio.4
 _rk_grf.4=	rk_grf.4
+_rk_i2c.4=	rk_i2c.4
 _rk_pinctrl.4=	rk_pinctrl.4
 .endif
 
@@ -888,6 +891,11 @@ _vmm.4=		vmm.4
 _nvram2env.4=	nvram2env.4
 .endif
 
+.if ${MACHINE_CPUARCH} == "powerpc"
+_nvd.4= 	nvd.4
+_nvme.4=	nvme.4
+.endif
+
 .if ${MACHINE_ARCH:Marmv[67]*} != "" || ${MACHINE_CPUARCH} == "aarch64"
 _bcm283x_pwm.4=  bcm283x_pwm.4
 .endif
@@ -910,6 +918,7 @@ _dtrace_provs=	dtrace_io.4 \
 		dtrace_lockstat.4 \
 		dtrace_proc.4 \
 		dtrace_sched.4 \
+		dtrace_sctp.4 \
 		dtrace_tcp.4 \
 		dtrace_udp.4
 .endif

@@ -77,10 +77,10 @@ enum {
 };
 
 #define	MSC_DEFAULT_VENDOR_ID		USB_TEMPLATE_VENDOR
-#define	MSC_DEFAULT_PRODUCT_ID		0x0012
+#define	MSC_DEFAULT_PRODUCT_ID		0x27df
 #define	MSC_DEFAULT_INTERFACE		"USB Mass Storage Interface"
 #define	MSC_DEFAULT_CONFIGURATION	"Default Config"
-#define	MSC_DEFAULT_MANUFACTURER	"FreeBSD foundation"
+#define	MSC_DEFAULT_MANUFACTURER	USB_TEMPLATE_MANUFACTURER
 #define	MSC_DEFAULT_PRODUCT		"USB Memory Stick"
 #define	MSC_DEFAULT_SERIAL_NUMBER	"March 2008"
 
@@ -142,8 +142,8 @@ static const struct usb_temp_interface_desc *msc_interfaces[] = {
 
 static const struct usb_temp_config_desc msc_config_desc = {
 	.ppIfaceDesc = msc_interfaces,
-	.bmAttributes = UC_BUS_POWERED,
-	.bMaxPower = 25,		/* 50 mA */
+	.bmAttributes = 0,
+	.bMaxPower = 0,
 	.iConfiguration = MSC_CONFIGURATION_INDEX,
 };
 

@@ -40,27 +40,6 @@
 
 	.text
 
-/*
- * bcopy family
- * void bzero(void *buf, u_int len)
- */
-
-/* done */
-ENTRY(bzero)
-	PUSH_FRAME_POINTER
-	movq	%rsi,%rcx
-	xorl	%eax,%eax
-	shrq	$3,%rcx
-	rep
-	stosq
-	movq	%rsi,%rcx
-	andq	$7,%rcx
-	rep
-	stosb
-	POP_FRAME_POINTER
-	ret
-END(bzero)
-
 /* Address: %rdi */
 ENTRY(pagezero)
 	PUSH_FRAME_POINTER
@@ -71,6 +50,21 @@ ENTRY(pagezero)
 	POP_FRAME_POINTER
 	ret
 END(pagezero)
+
+/*
+ * pagecopy(%rdi=from, %rsi=to)
+ */
+ENTRY(pagecopy)
+	PUSH_FRAME_POINTER
+	movq	$PAGE_SIZE/8,%rcx
+	movq	%rdi,%r9
+	movq	%rsi,%rdi
+	movq	%r9,%rsi
+	rep
+	movsq
+	POP_FRAME_POINTER
+	ret
+END(pagecopy)
 
 /* Address: %rdi */
 ENTRY(sse2_pagezero)
@@ -96,94 +90,6 @@ ENTRY(sse2_pagezero)
 	ret
 END(sse2_pagezero)
 
-ENTRY(bcmp)
-	PUSH_FRAME_POINTER
-	test	%rdx,%rdx
-	je	1f
-	cmpq	$64,%rdx
-	jg	4f
-
-	xor	%ecx,%ecx
-2:
-	movzbl	(%rdi,%rcx,1),%eax
-	movzbl	(%rsi,%rcx,1),%r8d
-	cmp	%r8b,%al
-	jne	3f
-	add	$0x1,%rcx
-	cmp	%rcx,%rdx
-	jne	2b
-1:
-	xor	%eax,%eax
-	POP_FRAME_POINTER
-	retq
-3:
-	mov	$1,%eax
-	POP_FRAME_POINTER
-	retq
-4:
-	movq	%rdx,%rcx
-	shrq	$3,%rcx
-	repe
-	cmpsq
-	jne	5f
-
-	movq	%rdx,%rcx
-	andq	$7,%rcx
-	repe
-	cmpsb
-5:
-	setne	%al
-	movsbl	%al,%eax
-	POP_FRAME_POINTER
-	ret
-END(bcmp)
-
-/*
- * bcopy(src, dst, cnt)
- *       rdi, rsi, rdx
- *  ws@tools.de     (Wolfgang Solfrank, TooLs GmbH) +49-228-985800
- */
-ENTRY(bcopy)
-	PUSH_FRAME_POINTER
-	xchgq	%rsi,%rdi
-	movq	%rdx,%rcx
-
-	movq	%rdi,%rax
-	subq	%rsi,%rax
-	cmpq	%rcx,%rax			/* overlapping && src < dst? */
-	jb	1f
-
-	shrq	$3,%rcx				/* copy by 64-bit words */
-	rep
-	movsq
-	movq	%rdx,%rcx
-	andq	$7,%rcx				/* any bytes left? */
-	rep
-	movsb
-	POP_FRAME_POINTER
-	ret
-
-	/* ALIGN_TEXT */
-1:
-	addq	%rcx,%rdi			/* copy backwards */
-	addq	%rcx,%rsi
-	decq	%rdi
-	decq	%rsi
-	andq	$7,%rcx				/* any fractional bytes? */
-	std
-	rep
-	movsb
-	movq	%rdx,%rcx			/* copy remainder by 32-bit words */
-	shrq	$3,%rcx
-	subq	$7,%rsi
-	subq	$7,%rdi
-	rep
-	movsq
-	cld
-	POP_FRAME_POINTER
-	ret
-END(bcopy)
-
 /*
  * memmove(dst, src, cnt)
  *         rdi, rsi, rdx
@@ -205,6 +111,11 @@ ENTRY(memmove)
 	movsq
 	movq	%rdx,%rcx
 	andq	$7,%rcx				/* any bytes left? */
+	jne	2f
+	movq	%r9,%rax
+	POP_FRAME_POINTER
+	ret
+2:
 	rep
 	movsb
 	movq	%r9,%rax
@@ -248,6 +159,10 @@ ENTRY(memcpy)
 	movsq
 	movq	%rdx,%rcx
 	andq	$7,%rcx				/* any bytes left? */
+	jne	1f
+	POP_FRAME_POINTER
+	ret
+1:
 	rep
 	movsb
 	POP_FRAME_POINTER
@@ -262,48 +177,25 @@ ENTRY(memset)
 	PUSH_FRAME_POINTER
 	movq	%rdi,%r9
 	movq	%rdx,%rcx
+	movzbq	%sil,%r8
 	movabs	$0x0101010101010101,%rax
-	imulq	%rsi,%rax
+	imulq	%r8,%rax
 	shrq	$3,%rcx
 	rep
 	stosq
 	movq	%rdx,%rcx
 	andq	$7,%rcx
+	jne	1f
+	movq	%r9,%rax
+	POP_FRAME_POINTER
+	ret
+1:
 	rep
 	stosb
 	movq	%r9,%rax
 	POP_FRAME_POINTER
 	ret
 END(memset)
-
-/*
- * pagecopy(%rdi=from, %rsi=to)
- */
-ENTRY(pagecopy)
-	PUSH_FRAME_POINTER
-	movq	$-PAGE_SIZE,%rax
-	movq	%rax,%rdx
-	subq	%rax,%rdi
-	subq	%rax,%rsi
-1:
-	prefetchnta (%rdi,%rax)
-	addq	$64,%rax
-	jne	1b
-2:
-	movq	(%rdi,%rdx),%rax
-	movnti	%rax,(%rsi,%rdx)
-	movq	8(%rdi,%rdx),%rax
-	movnti	%rax,8(%rsi,%rdx)
-	movq	16(%rdi,%rdx),%rax
-	movnti	%rax,16(%rsi,%rdx)
-	movq	24(%rdi,%rdx),%rax
-	movnti	%rax,24(%rsi,%rdx)
-	addq	$32,%rdx
-	jne	2b
-	sfence
-	POP_FRAME_POINTER
-	ret
-END(pagecopy)
 
 /* fillw(pat, base, cnt) */
 /*       %rdi,%rsi, %rdx */
@@ -372,6 +264,7 @@ ENTRY(copyout)
 	movsq
 	movb	%dl,%cl
 	andb	$7,%cl
+	je	done_copyout
 	rep
 	movsb
 
@@ -420,6 +313,7 @@ ENTRY(copyin)
 	movsq
 	movb	%al,%cl
 	andb	$7,%cl				/* copy remaining bytes */
+	je	done_copyin
 	rep
 	movsb
 
@@ -958,8 +852,9 @@ ENTRY(handle_ibrs_entry)
 	cmpb	$0,hw_ibrs_active(%rip)
 	je	1f
 	movl	$MSR_IA32_SPEC_CTRL,%ecx
-	movl	$(IA32_SPEC_CTRL_IBRS|IA32_SPEC_CTRL_STIBP),%eax
-	movl	$(IA32_SPEC_CTRL_IBRS|IA32_SPEC_CTRL_STIBP)>>32,%edx
+	rdmsr
+	orl	$(IA32_SPEC_CTRL_IBRS|IA32_SPEC_CTRL_STIBP),%eax
+	orl	$(IA32_SPEC_CTRL_IBRS|IA32_SPEC_CTRL_STIBP)>>32,%edx
 	wrmsr
 	movb	$1,PCPU(IBPB_SET)
 	testl	$CPUID_STDEXT_SMEP,cpu_stdext_feature(%rip)
@@ -972,8 +867,9 @@ ENTRY(handle_ibrs_exit)
 	cmpb	$0,PCPU(IBPB_SET)
 	je	1f
 	movl	$MSR_IA32_SPEC_CTRL,%ecx
-	xorl	%eax,%eax
-	xorl	%edx,%edx
+	rdmsr
+	andl	$~(IA32_SPEC_CTRL_IBRS|IA32_SPEC_CTRL_STIBP),%eax
+	andl	$~((IA32_SPEC_CTRL_IBRS|IA32_SPEC_CTRL_STIBP)>>32),%edx
 	wrmsr
 	movb	$0,PCPU(IBPB_SET)
 1:	ret
@@ -987,8 +883,9 @@ ENTRY(handle_ibrs_exit_rs)
 	pushq	%rdx
 	pushq	%rcx
 	movl	$MSR_IA32_SPEC_CTRL,%ecx
-	xorl	%eax,%eax
-	xorl	%edx,%edx
+	rdmsr
+	andl	$~(IA32_SPEC_CTRL_IBRS|IA32_SPEC_CTRL_STIBP),%eax
+	andl	$~((IA32_SPEC_CTRL_IBRS|IA32_SPEC_CTRL_STIBP)>>32),%edx
 	wrmsr
 	popq	%rcx
 	popq	%rdx
