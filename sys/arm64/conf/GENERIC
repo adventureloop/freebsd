@@ -106,6 +106,7 @@ options 	SOC_CAVM_THUNDERX
 options 	SOC_HISI_HI6220
 options 	SOC_BRCM_BCM2837
 options 	SOC_ROCKCHIP_RK3328
+options 	SOC_XILINX_ZYNQ
 
 # Annapurna Alpine drivers
 device		al_ccu			# Alpine Cache Coherency Unit
@@ -146,6 +147,7 @@ device		neta		# Marvell Armada 370/38x/XP/3700 NIC
 device  	smc		# SMSC LAN91C111
 device		vnic		# Cavium ThunderX NIC
 device		al_eth		# Annapurna Alpine Ethernet NIC
+device		dwc_rk		# Rockchip Designware
 
 # Block devices
 device		ahci
@@ -165,6 +167,7 @@ device		dwmmc
 # Serial (COM) ports
 device		uart		# Generic UART driver
 device		uart_msm	# Qualcomm MSM UART driver
+device		uart_mu		# RPI3 aux port
 device		uart_mvebu	# Armada 3700 UART driver
 device		uart_ns8250	# ns8250-type UART driver
 device		uart_snps
@@ -239,7 +242,6 @@ device		tun		# Packet tunnel.
 device		md		# Memory "disks"
 device		gif		# IPv6 and IPv4 tunneling
 device		firmware	# firmware assist module
-device		psci		# Support for ARM PSCI
 options 	EFIRT		# EFI Runtime Services
 
 # EXT_RESOURCES pseudo devices

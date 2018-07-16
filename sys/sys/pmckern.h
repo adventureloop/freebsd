@@ -176,7 +176,7 @@ struct pmc_domain_buffer_header {
 
 /* hook */
 extern int (*pmc_hook)(struct thread *_td, int _function, void *_arg);
-extern int (*pmc_intr)(int _cpu, struct trapframe *_frame);
+extern int (*pmc_intr)(struct trapframe *_frame);
 
 /* SX lock protecting the hook */
 extern struct sx pmc_sx;
@@ -201,11 +201,12 @@ extern struct pmc_domain_buffer_header *pmc_dom_hdrs[MAXMEMDOM];
 
 /* Hook invocation; for use within the kernel */
 #define	PMC_CALL_HOOK(t, cmd, arg)		\
-do {						\
-	epoch_enter_preempt(global_epoch_preempt);		\
+do {								\
+    struct epoch_tracker et;						\
+	epoch_enter_preempt(global_epoch_preempt, &et);		\
 	if (pmc_hook != NULL)			\
 		(pmc_hook)((t), (cmd), (arg));	\
-	epoch_exit_preempt(global_epoch_preempt);			\
+	epoch_exit_preempt(global_epoch_preempt, &et);	\
 } while (0)
 
 /* Hook invocation that needs an exclusive lock */

@@ -1574,14 +1574,22 @@ iflib_txsd_alloc(iflib_txq_t txq)
 	if_shared_ctx_t sctx = ctx->ifc_sctx;
 	if_softc_ctx_t scctx = &ctx->ifc_softc_ctx;
 	device_t dev = ctx->ifc_dev;
+	bus_size_t tsomaxsize;
 	int err, nsegments, ntsosegments;
 
 	nsegments = scctx->isc_tx_nsegments;
 	ntsosegments = scctx->isc_tx_tso_segments_max;
+	tsomaxsize = scctx->isc_tx_tso_size_max;
+	if (if_getcapabilities(ctx->ifc_ifp) & IFCAP_VLAN_MTU)
+		tsomaxsize += sizeof(struct ether_vlan_header);
 	MPASS(scctx->isc_ntxd[0] > 0);
 	MPASS(scctx->isc_ntxd[txq->ift_br_offset] > 0);
 	MPASS(nsegments > 0);
-	MPASS(ntsosegments > 0);
+	if (if_getcapabilities(ctx->ifc_ifp) & IFCAP_TSO) {
+		MPASS(ntsosegments > 0);
+		MPASS(sctx->isc_tso_maxsize >= tsomaxsize);
+	}
+
 	/*
 	 * Setup DMA descriptor areas.
 	 */
@@ -1602,14 +1610,15 @@ iflib_txsd_alloc(iflib_txq_t txq)
 		    (uintmax_t)sctx->isc_tx_maxsize, nsegments, (uintmax_t)sctx->isc_tx_maxsegsize);
 		goto fail;
 	}
-	if ((err = bus_dma_tag_create(bus_get_dma_tag(dev),
+	if ((if_getcapabilities(ctx->ifc_ifp) & IFCAP_TSO) &
+	    (err = bus_dma_tag_create(bus_get_dma_tag(dev),
 			       1, 0,			/* alignment, bounds */
 			       BUS_SPACE_MAXADDR,	/* lowaddr */
 			       BUS_SPACE_MAXADDR,	/* highaddr */
 			       NULL, NULL,		/* filter, filterarg */
-			       scctx->isc_tx_tso_size_max,		/* maxsize */
+			       tsomaxsize,		/* maxsize */
 			       ntsosegments,	/* nsegments */
-			       scctx->isc_tx_tso_segsize_max,	/* maxsegsize */
+			       sctx->isc_tso_maxsegsize,/* maxsegsize */
 			       0,			/* flags */
 			       NULL,			/* lockfunc */
 			       NULL,			/* lockfuncarg */
@@ -2275,7 +2284,7 @@ iflib_init_locked(if_ctx_t ctx)
 			}
 		}
 	}
-	done:
+done:
 	if_setdrvflagbits(ctx->ifc_ifp, IFF_DRV_RUNNING, IFF_DRV_OACTIVE);
 	IFDI_INTR_ENABLE(ctx);
 	txq = ctx->ifc_txqs;
@@ -2822,7 +2831,9 @@ print_pkt(if_pkt_info_t pi)
 #endif
 
 #define IS_TSO4(pi) ((pi)->ipi_csum_flags & CSUM_IP_TSO)
+#define IS_TX_OFFLOAD4(pi) ((pi)->ipi_csum_flags & (CSUM_IP_TCP | CSUM_IP_TSO))
 #define IS_TSO6(pi) ((pi)->ipi_csum_flags & CSUM_IP6_TSO)
+#define IS_TX_OFFLOAD6(pi) ((pi)->ipi_csum_flags & (CSUM_IP6_TCP | CSUM_IP6_TSO))
 
 static int
 iflib_parse_header(iflib_txq_t txq, if_pkt_info_t pi, struct mbuf **mp)
@@ -2908,8 +2919,9 @@ iflib_parse_header(iflib_txq_t txq, if_pkt_info_t pi, struct mbuf **mp)
 		if ((sctx->isc_flags & IFLIB_NEED_ZERO_CSUM) && (pi->ipi_csum_flags & CSUM_IP))
                        ip->ip_sum = 0;
 
-		if (IS_TSO4(pi)) {
-			if (pi->ipi_ipproto == IPPROTO_TCP) {
+		/* TCP checksum offload may require TCP header length */
+		if (IS_TX_OFFLOAD4(pi)) {
+			if (__predict_true(pi->ipi_ipproto == IPPROTO_TCP)) {
 				if (__predict_false(th == NULL)) {
 					txq->ift_pullups++;
 					if (__predict_false((m = m_pullup(m, (ip->ip_hl << 2) + sizeof(*th))) == NULL))
@@ -2920,14 +2932,16 @@ iflib_parse_header(iflib_txq_t txq, if_pkt_info_t pi, struct mbuf **mp)
 				pi->ipi_tcp_hlen = th->th_off << 2;
 				pi->ipi_tcp_seq = th->th_seq;
 			}
-			if (__predict_false(ip->ip_p != IPPROTO_TCP))
-				return (ENXIO);
-			th->th_sum = in_pseudo(ip->ip_src.s_addr,
-					       ip->ip_dst.s_addr, htons(IPPROTO_TCP));
-			pi->ipi_tso_segsz = m->m_pkthdr.tso_segsz;
-			if (sctx->isc_flags & IFLIB_TSO_INIT_IP) {
-				ip->ip_sum = 0;
-				ip->ip_len = htons(pi->ipi_ip_hlen + pi->ipi_tcp_hlen + pi->ipi_tso_segsz);
+			if (IS_TSO4(pi)) {
+				if (__predict_false(ip->ip_p != IPPROTO_TCP))
+					return (ENXIO);
+				th->th_sum = in_pseudo(ip->ip_src.s_addr,
+						       ip->ip_dst.s_addr, htons(IPPROTO_TCP));
+				pi->ipi_tso_segsz = m->m_pkthdr.tso_segsz;
+				if (sctx->isc_flags & IFLIB_TSO_INIT_IP) {
+					ip->ip_sum = 0;
+					ip->ip_len = htons(pi->ipi_ip_hlen + pi->ipi_tcp_hlen + pi->ipi_tso_segsz);
+				}
 			}
 		}
 		break;
@@ -2950,26 +2964,30 @@ iflib_parse_header(iflib_txq_t txq, if_pkt_info_t pi, struct mbuf **mp)
 		pi->ipi_ipproto = ip6->ip6_nxt;
 		pi->ipi_flags |= IPI_TX_IPV6;
 
-		if (IS_TSO6(pi)) {
+		/* TCP checksum offload may require TCP header length */
+		if (IS_TX_OFFLOAD6(pi)) {
 			if (pi->ipi_ipproto == IPPROTO_TCP) {
 				if (__predict_false(m->m_len < pi->ipi_ehdrlen + sizeof(struct ip6_hdr) + sizeof(struct tcphdr))) {
+					txq->ift_pullups++;
 					if (__predict_false((m = m_pullup(m, pi->ipi_ehdrlen + sizeof(struct ip6_hdr) + sizeof(struct tcphdr))) == NULL))
 						return (ENOMEM);
 				}
 				pi->ipi_tcp_hflags = th->th_flags;
 				pi->ipi_tcp_hlen = th->th_off << 2;
+				pi->ipi_tcp_seq = th->th_seq;
 			}
-
-			if (__predict_false(ip6->ip6_nxt != IPPROTO_TCP))
-				return (ENXIO);
-			/*
-			 * The corresponding flag is set by the stack in the IPv4
-			 * TSO case, but not in IPv6 (at least in FreeBSD 10.2).
-			 * So, set it here because the rest of the flow requires it.
-			 */
-			pi->ipi_csum_flags |= CSUM_TCP_IPV6;
-			th->th_sum = in6_cksum_pseudo(ip6, 0, IPPROTO_TCP, 0);
-			pi->ipi_tso_segsz = m->m_pkthdr.tso_segsz;
+			if (IS_TSO6(pi)) {
+				if (__predict_false(ip6->ip6_nxt != IPPROTO_TCP))
+					return (ENXIO);
+				/*
+				 * The corresponding flag is set by the stack in the IPv4
+				 * TSO case, but not in IPv6 (at least in FreeBSD 10.2).
+				 * So, set it here because the rest of the flow requires it.
+				 */
+				pi->ipi_csum_flags |= CSUM_IP6_TCP;
+				th->th_sum = in6_cksum_pseudo(ip6, 0, IPPROTO_TCP, 0);
+				pi->ipi_tso_segsz = m->m_pkthdr.tso_segsz;
+			}
 		}
 		break;
 	}
@@ -3270,6 +3288,8 @@ iflib_encap(iflib_txq_t txq, struct mbuf **m_headp)
 	if (m_head->m_pkthdr.csum_flags & CSUM_TSO) {
 		desc_tag = txq->ift_tso_desc_tag;
 		max_segs = scctx->isc_tx_tso_segments_max;
+		MPASS(desc_tag != NULL);
+		MPASS(max_segs > 0);
 	} else {
 		desc_tag = txq->ift_desc_tag;
 		max_segs = scctx->isc_tx_nsegments;
@@ -3719,16 +3739,6 @@ _task_fn_tx(void *context)
 		 */
 		if (ctx->isc_txd_credits_update(ctx->ifc_softc, txq->ift_id, false))
 			netmap_tx_irq(ifp, txq->ift_id);
-		else {
-#ifdef DEV_NETMAP			
-			if (!(ctx->ifc_flags & IFC_NETMAP_TX_IRQ)) {
-				struct netmap_kring *kring = NA(ctx->ifc_ifp)->tx_rings[txq->ift_id];
-
-				if (kring->nr_hwtail != nm_prev(kring->rhead, kring->nkr_num_slots - 1))
-					GROUPTASK_ENQUEUE(&txq->ift_task);
-			}
-#endif			
-		}
 		IFDI_TX_QUEUE_INTR_ENABLE(ctx, txq->ift_id);
 		return;
 	}
@@ -4015,7 +4025,7 @@ iflib_if_ioctl(if_t ifp, u_long command, caddr_t data)
 		*/
 		if (avoid_reset) {
 			if_setflagbits(ifp, IFF_UP,0);
-			if (!(if_getdrvflags(ifp)& IFF_DRV_RUNNING))
+			if (!(if_getdrvflags(ifp) & IFF_DRV_RUNNING))
 				reinit = 1;
 #ifdef INET
 			if (!(if_getflags(ifp) & IFF_NOARP))
@@ -4116,7 +4126,7 @@ iflib_if_ioctl(if_t ifp, u_long command, caddr_t data)
 #endif
 		setmask |= (mask & IFCAP_FLAGS);
 
-		if (setmask  & (IFCAP_RXCSUM | IFCAP_RXCSUM_IPV6))
+		if (setmask & (IFCAP_RXCSUM | IFCAP_RXCSUM_IPV6))
 			setmask |= (IFCAP_RXCSUM | IFCAP_RXCSUM_IPV6);
 		if ((mask & IFCAP_WOL) &&
 		    (if_getcapabilities(ifp) & IFCAP_WOL) != 0)
@@ -4141,7 +4151,7 @@ iflib_if_ioctl(if_t ifp, u_long command, caddr_t data)
 			CTX_UNLOCK(ctx);
 		}
 		break;
-	    }
+	}
 	case SIOCGPRIVATE_0:
 	case SIOCSDRVSPEC:
 	case SIOCGDRVSPEC:
@@ -4380,12 +4390,12 @@ iflib_device_register(device_t dev, void *sc, if_shared_ctx_t sctx, if_ctx_t *ct
 	ctx->ifc_txrx = *scctx->isc_txrx;
 
 #ifdef INVARIANTS
-	MPASS(scctx->isc_capenable);
-	if (scctx->isc_capenable & IFCAP_TXCSUM)
+	MPASS(scctx->isc_capabilities);
+	if (scctx->isc_capabilities & IFCAP_TXCSUM)
 		MPASS(scctx->isc_tx_csum_flags);
 #endif
 
-	if_setcapabilities(ifp, scctx->isc_capenable | IFCAP_HWSTATS);
+	if_setcapabilities(ifp, scctx->isc_capabilities | IFCAP_HWSTATS);
 	if_setcapenable(ifp, scctx->isc_capenable | IFCAP_HWSTATS);
 
 	if (scctx->isc_ntxqsets == 0 || (scctx->isc_ntxqsets_max && scctx->isc_ntxqsets_max < scctx->isc_ntxqsets))
@@ -4433,16 +4443,25 @@ iflib_device_register(device_t dev, void *sc, if_shared_ctx_t sctx, if_ctx_t *ct
 		scctx->isc_tx_tso_segments_max = max(1,
 		    scctx->isc_ntxd[main_txq] / MAX_SINGLE_PACKET_FRACTION);
 
-	/*
-	 * Protect the stack against modern hardware
-	 */
-	if (scctx->isc_tx_tso_size_max > FREEBSD_TSO_SIZE_MAX)
-		scctx->isc_tx_tso_size_max = FREEBSD_TSO_SIZE_MAX;
-
 	/* TSO parameters - dig these out of the data sheet - simply correspond to tag setup */
-	ifp->if_hw_tsomaxsegcount = scctx->isc_tx_tso_segments_max;
-	ifp->if_hw_tsomax = scctx->isc_tx_tso_size_max;
-	ifp->if_hw_tsomaxsegsize = scctx->isc_tx_tso_segsize_max;
+	if (if_getcapabilities(ifp) & IFCAP_TSO) {
+		/*
+		 * The stack can't handle a TSO size larger than IP_MAXPACKET,
+		 * but some MACs do.
+		 */
+		if_sethwtsomax(ifp, min(scctx->isc_tx_tso_size_max,
+		    IP_MAXPACKET));
+		/*
+		 * Take maximum number of m_pullup(9)'s in iflib_parse_header()
+		 * into account.  In the worst case, each of these calls will
+		 * add another mbuf and, thus, the requirement for another DMA
+		 * segment.  So for best performance, it doesn't make sense to
+		 * advertize a maximum of TSO segments that typically will
+		 * require defragmentation in iflib_encap().
+		 */
+		if_sethwtsomaxsegcount(ifp, scctx->isc_tx_tso_segments_max - 3);
+		if_sethwtsomaxsegsize(ifp, scctx->isc_tx_tso_segsize_max);
+	}
 	if (scctx->isc_rss_table_size == 0)
 		scctx->isc_rss_table_size = 64;
 	scctx->isc_rss_table_mask = scctx->isc_rss_table_size-1;
@@ -4513,11 +4532,22 @@ iflib_device_register(device_t dev, void *sc, if_shared_ctx_t sctx, if_ctx_t *ct
 			goto fail_intr_free;
 		}
 	}
+
 	ether_ifattach(ctx->ifc_ifp, ctx->ifc_mac);
+
 	if ((err = IFDI_ATTACH_POST(ctx)) != 0) {
 		device_printf(dev, "IFDI_ATTACH_POST failed %d\n", err);
 		goto fail_detach;
 	}
+
+	/*
+	 * Tell the upper layer(s) if IFCAP_VLAN_MTU is supported.
+	 * This must appear after the call to ether_ifattach() because
+	 * ether_ifattach() sets if_hdrlen to the default value.
+	 */
+	if (if_getcapabilities(ifp) & IFCAP_VLAN_MTU)
+		if_setifheaderlen(ifp, sizeof(struct ether_vlan_header));
+
 	if ((err = iflib_netmap_attach(ctx))) {
 		device_printf(ctx->ifc_dev, "netmap attach failed: %d\n", err);
 		goto fail_detach;
@@ -4600,12 +4630,12 @@ iflib_pseudo_register(device_t dev, if_shared_ctx_t sctx, if_ctx_t *ctxp,
 	ifmedia_set(&ctx->ifc_media, IFM_ETHER | IFM_AUTO);
 
 #ifdef INVARIANTS
-	MPASS(scctx->isc_capenable);
-	if (scctx->isc_capenable & IFCAP_TXCSUM)
+	MPASS(scctx->isc_capabilities);
+	if (scctx->isc_capabilities & IFCAP_TXCSUM)
 		MPASS(scctx->isc_tx_csum_flags);
 #endif
 
-	if_setcapabilities(ifp, scctx->isc_capenable | IFCAP_HWSTATS | IFCAP_LINKSTATE);
+	if_setcapabilities(ifp, scctx->isc_capabilities | IFCAP_HWSTATS | IFCAP_LINKSTATE);
 	if_setcapenable(ifp, scctx->isc_capenable | IFCAP_HWSTATS | IFCAP_LINKSTATE);
 
 	ifp->if_flags |= IFF_NOGROUP;
@@ -4617,6 +4647,15 @@ iflib_pseudo_register(device_t dev, if_shared_ctx_t sctx, if_ctx_t *ctxp,
 			goto fail_detach;
 		}
 		*ctxp = ctx;
+
+		/*
+		 * Tell the upper layer(s) if IFCAP_VLAN_MTU is supported.
+		 * This must appear after the call to ether_ifattach() because
+		 * ether_ifattach() sets if_hdrlen to the default value.
+		 */
+		if (if_getcapabilities(ifp) & IFCAP_VLAN_MTU)
+			if_setifheaderlen(ifp,
+			    sizeof(struct ether_vlan_header));
 
 		if_setgetcounterfn(ctx->ifc_ifp, iflib_if_get_counter);
 		iflib_add_device_sysctl_post(ctx);
@@ -4663,16 +4702,25 @@ iflib_pseudo_register(device_t dev, if_shared_ctx_t sctx, if_ctx_t *ctxp,
 		scctx->isc_tx_tso_segments_max = max(1,
 		    scctx->isc_ntxd[main_txq] / MAX_SINGLE_PACKET_FRACTION);
 
-	/*
-	 * Protect the stack against modern hardware
-	 */
-	if (scctx->isc_tx_tso_size_max > FREEBSD_TSO_SIZE_MAX)
-		scctx->isc_tx_tso_size_max = FREEBSD_TSO_SIZE_MAX;
-
 	/* TSO parameters - dig these out of the data sheet - simply correspond to tag setup */
-	ifp->if_hw_tsomaxsegcount = scctx->isc_tx_tso_segments_max;
-	ifp->if_hw_tsomax = scctx->isc_tx_tso_size_max;
-	ifp->if_hw_tsomaxsegsize = scctx->isc_tx_tso_segsize_max;
+	if (if_getcapabilities(ifp) & IFCAP_TSO) {
+		/*
+		 * The stack can't handle a TSO size larger than IP_MAXPACKET,
+		 * but some MACs do.
+		 */
+		if_sethwtsomax(ifp, min(scctx->isc_tx_tso_size_max,
+		    IP_MAXPACKET));
+		/*
+		 * Take maximum number of m_pullup(9)'s in iflib_parse_header()
+		 * into account.  In the worst case, each of these calls will
+		 * add another mbuf and, thus, the requirement for another DMA
+		 * segment.  So for best performance, it doesn't make sense to
+		 * advertize a maximum of TSO segments that typically will
+		 * require defragmentation in iflib_encap().
+		 */
+		if_sethwtsomaxsegcount(ifp, scctx->isc_tx_tso_segments_max - 3);
+		if_sethwtsomaxsegsize(ifp, scctx->isc_tx_tso_segsize_max);
+	}
 	if (scctx->isc_rss_table_size == 0)
 		scctx->isc_rss_table_size = 64;
 	scctx->isc_rss_table_mask = scctx->isc_rss_table_size-1;
@@ -4694,6 +4742,7 @@ iflib_pseudo_register(device_t dev, if_shared_ctx_t sctx, if_ctx_t *ctxp,
 		device_printf(dev, "qset structure setup failed %d\n", err);
 		goto fail_queues;
 	}
+
 	/*
 	 * XXX What if anything do we want to do about interrupts?
 	 */
@@ -4702,6 +4751,15 @@ iflib_pseudo_register(device_t dev, if_shared_ctx_t sctx, if_ctx_t *ctxp,
 		device_printf(dev, "IFDI_ATTACH_POST failed %d\n", err);
 		goto fail_detach;
 	}
+
+	/*
+	 * Tell the upper layer(s) if IFCAP_VLAN_MTU is supported.
+	 * This must appear after the call to ether_ifattach() because
+	 * ether_ifattach() sets if_hdrlen to the default value.
+	 */
+	if (if_getcapabilities(ifp) & IFCAP_VLAN_MTU)
+		if_setifheaderlen(ifp, sizeof(struct ether_vlan_header));
+
 	/* XXX handle more than one queue */
 	for (i = 0; i < scctx->isc_nrxqsets; i++)
 		IFDI_RX_CLSET(ctx, 0, i, ctx->ifc_rxqs[i].ifr_fl[0].ifl_sds.ifsd_cl);
@@ -5098,7 +5156,7 @@ iflib_queues_alloc(if_ctx_t ctx)
 	KASSERT(ntxqs > 0, ("number of queues per qset must be at least 1"));
 	KASSERT(nrxqs > 0, ("number of queues per qset must be at least 1"));
 
-/* Allocate the TX ring struct memory */
+	/* Allocate the TX ring struct memory */
 	if (!(ctx->ifc_txqs =
 	    (iflib_txq_t) malloc(sizeof(struct iflib_txq) *
 	    ntxqsets, M_IFLIB, M_NOWAIT | M_ZERO))) {
@@ -5880,47 +5938,9 @@ iflib_msix_init(if_ctx_t ctx)
 
 	bar = ctx->ifc_softc_ctx.isc_msix_bar;
 	admincnt = sctx->isc_admin_intrcnt;
-	/* Override by global tuneable */
-	{
-		int i;
-		size_t len = sizeof(i);
-		err = kernel_sysctlbyname(curthread, "hw.pci.enable_msix", &i, &len, NULL, 0, NULL, 0);
-		if (err == 0) {
-			if (i == 0)
-				goto msi;
-		}
-		else {
-			device_printf(dev, "unable to read hw.pci.enable_msix.");
-		}
-	}
 	/* Override by tuneable */
 	if (scctx->isc_disable_msix)
 		goto msi;
-
-	/*
-	** When used in a virtualized environment
-	** PCI BUSMASTER capability may not be set
-	** so explicity set it here and rewrite
-	** the ENABLE in the MSIX control register
-	** at this point to cause the host to
-	** successfully initialize us.
-	*/
-	{
-		int msix_ctrl, rid;
-
- 		pci_enable_busmaster(dev);
-		rid = 0;
-		if (pci_find_cap(dev, PCIY_MSIX, &rid) == 0 && rid != 0) {
-			rid += PCIR_MSIX_CTRL;
-			msix_ctrl = pci_read_config(dev, rid, 2);
-			msix_ctrl |= PCIM_MSIXCTRL_MSIX_ENABLE;
-			pci_write_config(dev, rid, msix_ctrl, 2);
-		} else {
-			device_printf(dev, "PCIY_MSIX capability not found; "
-			                   "or rid %d == 0.\n", rid);
-			goto msi;
-		}
-	}
 
 	/*
 	 * bar == -1 => "trust me I know what I'm doing"
@@ -6008,6 +6028,9 @@ iflib_msix_init(if_ctx_t ctx)
 		return (vectors);
 	} else {
 		device_printf(dev, "failed to allocate %d msix vectors, err: %d - using MSI\n", vectors, err);
+		bus_release_resource(dev, SYS_RES_MEMORY, bar,
+		    ctx->ifc_msix_mem);
+		ctx->ifc_msix_mem = NULL;
 	}
 msi:
 	vectors = pci_msi_count(dev);
@@ -6018,6 +6041,7 @@ msi:
 		device_printf(dev,"Using an MSI interrupt\n");
 		scctx->isc_intr = IFLIB_INTR_MSI;
 	} else {
+		scctx->isc_vectors = 1;
 		device_printf(dev,"Using a Legacy interrupt\n");
 		scctx->isc_intr = IFLIB_INTR_LEGACY;
 	}
@@ -6025,7 +6049,7 @@ msi:
 	return (vectors);
 }
 
-char * ring_states[] = { "IDLE", "BUSY", "STALLED", "ABDICATED" };
+static const char *ring_states[] = { "IDLE", "BUSY", "STALLED", "ABDICATED" };
 
 static int
 mp_ring_state_handler(SYSCTL_HANDLER_ARGS)
@@ -6033,7 +6057,7 @@ mp_ring_state_handler(SYSCTL_HANDLER_ARGS)
 	int rc;
 	uint16_t *state = ((uint16_t *)oidp->oid_arg1);
 	struct sbuf *sb;
-	char *ring_state = "UNKNOWN";
+	const char *ring_state = "UNKNOWN";
 
 	/* XXX needed ? */
 	rc = sysctl_wire_old_buffer(req, 0);

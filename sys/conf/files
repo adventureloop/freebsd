@@ -635,22 +635,22 @@ contrib/ngatm/netnatm/sig/sig_unimsgcpy.c optional ngatm_uni \
 contrib/ngatm/netnatm/sig/sig_verify.c optional ngatm_uni \
 	compile-with "${NORMAL_C} -I$S/contrib/ngatm"
 # Zstd
-contrib/zstd/lib/freebsd/zstd_kmalloc.c		standard compile-with ${ZSTD_C}
-contrib/zstd/lib/common/zstd_common.c		standard compile-with ${ZSTD_C}
-contrib/zstd/lib/common/fse_decompress.c	standard compile-with ${ZSTD_C}
-contrib/zstd/lib/common/entropy_common.c	standard compile-with ${ZSTD_C}
-contrib/zstd/lib/common/error_private.c		standard compile-with ${ZSTD_C}
-contrib/zstd/lib/common/xxhash.c		standard compile-with ${ZSTD_C}
-contrib/zstd/lib/compress/zstd_compress.c	standard compile-with ${ZSTD_C}
-contrib/zstd/lib/compress/fse_compress.c	standard compile-with ${ZSTD_C}
-contrib/zstd/lib/compress/huf_compress.c	standard compile-with ${ZSTD_C}
-contrib/zstd/lib/compress/zstd_double_fast.c	standard compile-with ${ZSTD_C}
-contrib/zstd/lib/compress/zstd_fast.c		standard compile-with ${ZSTD_C}
-contrib/zstd/lib/compress/zstd_lazy.c		standard compile-with ${ZSTD_C}
-contrib/zstd/lib/compress/zstd_ldm.c		standard compile-with ${ZSTD_C}
-contrib/zstd/lib/compress/zstd_opt.c		standard compile-with ${ZSTD_C}
-contrib/zstd/lib/decompress/zstd_decompress.c	standard compile-with ${ZSTD_C}
-contrib/zstd/lib/decompress/huf_decompress.c	standard compile-with ${ZSTD_C}
+contrib/zstd/lib/freebsd/zstd_kmalloc.c		optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/common/zstd_common.c		optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/common/fse_decompress.c	optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/common/entropy_common.c	optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/common/error_private.c		optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/common/xxhash.c		optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/compress/zstd_compress.c	optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/compress/fse_compress.c	optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/compress/huf_compress.c	optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/compress/zstd_double_fast.c	optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/compress/zstd_fast.c		optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/compress/zstd_lazy.c		optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/compress/zstd_ldm.c		optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/compress/zstd_opt.c		optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/decompress/zstd_decompress.c	optional zstdio compile-with ${ZSTD_C}
+contrib/zstd/lib/decompress/huf_decompress.c	optional zstdio compile-with ${ZSTD_C}
 # Blake 2
 contrib/libb2/blake2b-ref.c	optional crypto | ipsec | ipsec_support \
 	compile-with "${NORMAL_C} -I$S/crypto/blake2 -Wno-cast-qual -DSUFFIX=_ref -Wno-unused-function"
@@ -1785,10 +1785,10 @@ dev/firewire/if_fwip.c		optional fwip
 dev/firewire/sbp.c		optional sbp
 dev/firewire/sbp_targ.c		optional sbp_targ
 dev/flash/at45d.c		optional at45d
-dev/flash/cqspi.c		optional cqspi
+dev/flash/cqspi.c		optional cqspi fdt xdma
 dev/flash/mx25l.c		optional mx25l
-dev/flash/n25q.c		optional n25q
-dev/flash/qspi_if.m		optional cqspi | n25q
+dev/flash/n25q.c		optional n25q fdt
+dev/flash/qspi_if.m		optional cqspi fdt | n25q fdt
 dev/fxp/if_fxp.c		optional fxp
 dev/fxp/inphy.c			optional fxp
 dev/gem/if_gem.c		optional gem
@@ -3424,6 +3424,7 @@ dev/videomode/videomode.c		optional videomode
 dev/videomode/edid.c			optional videomode
 dev/videomode/pickmode.c		optional videomode
 dev/videomode/vesagtf.c			optional videomode
+dev/veriexec/verified_exec.c	optional veriexec mac_veriexec
 dev/vge/if_vge.c		optional vge
 dev/viapm/viapm.c		optional viapm pci
 dev/virtio/virtio.c			optional	virtio
@@ -3774,7 +3775,6 @@ kern/imgact_binmisc.c		optional	imagact_binmisc
 kern/imgact_elf.c		standard
 kern/imgact_elf32.c		optional compat_freebsd32
 kern/imgact_shell.c		standard
-kern/inflate.c			optional gzip
 kern/init_main.c		standard
 kern/init_sysent.c		standard
 kern/ksched.c			optional _kposix_priority_scheduling
@@ -3867,6 +3867,7 @@ kern/subr_acl_nfs4.c		optional ufs_acl | zfs
 kern/subr_acl_posix1e.c		optional ufs_acl
 kern/subr_autoconf.c		standard
 kern/subr_blist.c		standard
+kern/subr_boot.c		standard
 kern/subr_bus.c			standard
 kern/subr_bus_dma.c		standard
 kern/subr_bufring.c		standard
@@ -3884,6 +3885,7 @@ kern/subr_firmware.c		optional firmware
 kern/subr_gtaskqueue.c		standard
 kern/subr_hash.c		standard
 kern/subr_hints.c		standard
+kern/subr_inflate.c		optional gzip
 kern/subr_kdb.c			standard
 kern/subr_kobj.c		standard
 kern/subr_lock.c		standard
@@ -4892,6 +4894,14 @@ security/mac_portacl/mac_portacl.c optional mac_portacl
 security/mac_seeotheruids/mac_seeotheruids.c optional mac_seeotheruids
 security/mac_stub/mac_stub.c	optional mac_stub
 security/mac_test/mac_test.c	optional mac_test
+security/mac_veriexec/mac_veriexec.c		optional mac_veriexec
+security/mac_veriexec/veriexec_fingerprint.c	optional mac_veriexec
+security/mac_veriexec/veriexec_metadata.c	optional mac_veriexec
+security/mac_veriexec/mac_veriexec_rmd160.c	optional mac_veriexec_rmd160
+security/mac_veriexec/mac_veriexec_sha1.c	optional mac_veriexec_sha1
+security/mac_veriexec/mac_veriexec_sha256.c	optional mac_veriexec_sha256
+security/mac_veriexec/mac_veriexec_sha384.c	optional mac_veriexec_sha384
+security/mac_veriexec/mac_veriexec_sha512.c	optional mac_veriexec_sha512
 teken/teken.c			optional sc | vt
 ufs/ffs/ffs_alloc.c		optional ffs
 ufs/ffs/ffs_balloc.c		optional ffs

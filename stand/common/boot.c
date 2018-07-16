@@ -32,6 +32,8 @@ __FBSDID("$FreeBSD$");
  */
 
 #include <stand.h>
+#include <sys/reboot.h>
+#include <sys/boot.h>
 #include <string.h>
 
 #include "bootstrap.h"

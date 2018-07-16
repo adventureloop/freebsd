@@ -65,6 +65,10 @@
 #include <sys/ioccom.h>
 #include <sys/_task.h>
 
+#ifdef _KERNEL
+#include <opencrypto/_cryptodev.h>
+#endif
+
 /* Some initial values */
 #define CRYPTO_DRIVERS_INITIAL	4
 #define CRYPTO_SW_SESSIONS	32
@@ -74,6 +78,7 @@
 #define	MD5_HASH_LEN		16
 #define	SHA1_HASH_LEN		20
 #define	RIPEMD160_HASH_LEN	20
+#define	SHA2_224_HASH_LEN	28
 #define	SHA2_256_HASH_LEN	32
 #define	SHA2_384_HASH_LEN	48
 #define	SHA2_512_HASH_LEN	64
@@ -83,16 +88,18 @@
 /* Maximum hash algorithm result length */
 #define	HASH_MAX_LEN		SHA2_512_HASH_LEN /* Keep this updated */
 
+#define	MD5_BLOCK_LEN		64
+#define	SHA1_BLOCK_LEN		64
+#define	RIPEMD160_BLOCK_LEN	64
+#define	SHA2_224_BLOCK_LEN	64
+#define	SHA2_256_BLOCK_LEN	64
+#define	SHA2_384_BLOCK_LEN	128
+#define	SHA2_512_BLOCK_LEN	128
+
 /* HMAC values */
 #define	NULL_HMAC_BLOCK_LEN		64
-#define	MD5_HMAC_BLOCK_LEN		64
-#define	SHA1_HMAC_BLOCK_LEN		64
-#define	RIPEMD160_HMAC_BLOCK_LEN	64
-#define	SHA2_256_HMAC_BLOCK_LEN	64
-#define	SHA2_384_HMAC_BLOCK_LEN	128
-#define	SHA2_512_HMAC_BLOCK_LEN	128
 /* Maximum HMAC block length */
-#define	HMAC_MAX_BLOCK_LEN	SHA2_512_HMAC_BLOCK_LEN /* Keep this updated */
+#define	HMAC_MAX_BLOCK_LEN	SHA2_512_BLOCK_LEN /* Keep this updated */
 #define	HMAC_IPAD_VAL			0x36
 #define	HMAC_OPAD_VAL			0x5C
 /* HMAC Key Length */
@@ -182,7 +189,13 @@
 #define	CRYPTO_BLAKE2B		29 /* Blake2b hash */
 #define	CRYPTO_BLAKE2S		30 /* Blake2s hash */
 #define	CRYPTO_CHACHA20		31 /* Chacha20 stream cipher */
-#define	CRYPTO_ALGORITHM_MAX	31 /* Keep updated - see below */
+#define	CRYPTO_SHA2_224_HMAC	32
+#define	CRYPTO_RIPEMD160	33
+#define	CRYPTO_SHA2_224		34
+#define	CRYPTO_SHA2_256		35
+#define	CRYPTO_SHA2_384		36
+#define	CRYPTO_SHA2_512		37
+#define	CRYPTO_ALGORITHM_MAX	37 /* Keep updated - see below */
 
 #define	CRYPTO_ALGO_VALID(x)	((x) >= CRYPTO_ALGORITHM_MIN && \
 				 (x) <= CRYPTO_ALGORITHM_MAX)
@@ -399,7 +412,7 @@ struct cryptop {
 
 	struct task	crp_task;
 
-	u_int64_t	crp_sid;	/* Session ID */
+	crypto_session_t crp_sid;	/* Session ID */
 	int		crp_ilen;	/* Input data total length */
 	int		crp_olen;	/* Result total length */
 
@@ -493,8 +506,8 @@ struct cryptkop {
 
 MALLOC_DECLARE(M_CRYPTO_DATA);
 
-extern	int crypto_newsession(u_int64_t *sid, struct cryptoini *cri, int hard);
-extern	int crypto_freesession(u_int64_t sid);
+extern	int crypto_newsession(crypto_session_t *sid, struct cryptoini *cri, int hard);
+extern	int crypto_freesession(crypto_session_t sid);
 #define	CRYPTOCAP_F_HARDWARE	CRYPTO_FLAG_HARDWARE
 #define	CRYPTOCAP_F_SOFTWARE	CRYPTO_FLAG_SOFTWARE
 #define	CRYPTOCAP_F_SYNC	0x04000000	/* operates synchronously */

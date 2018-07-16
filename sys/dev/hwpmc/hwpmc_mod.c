@@ -85,6 +85,9 @@ __FBSDID("$FreeBSD$");
 #define free_domain(addr, type) free(addr, type)
 #endif
 
+#define PMC_EPOCH_ENTER() struct epoch_tracker pmc_et; epoch_enter_preempt(global_epoch_preempt, &pmc_et)
+#define PMC_EPOCH_EXIT() epoch_exit_preempt(global_epoch_preempt, &pmc_et)
+
 /*
  * Types
  */
@@ -207,8 +210,7 @@ static int	pmc_debugflags_parse(char *newstr, char *fence);
 #endif
 
 static int	load(struct module *module, int cmd, void *arg);
-static int	pmc_add_sample(int cpu, int ring, struct pmc *pm,
-    struct trapframe *tf, int inuserspace);
+static int	pmc_add_sample(int ring, struct pmc *pm, struct trapframe *tf);
 static void	pmc_add_thread_descriptors_from_proc(struct proc *p,
     struct pmc_process *pp);
 static int	pmc_attach_process(struct proc *p, struct pmc *pm);
@@ -807,6 +809,19 @@ pmc_force_context_switch(void)
 {
 
 	pause("pmcctx", 1);
+}
+
+uint64_t
+pmc_rdtsc(void)
+{
+#if defined(__i386__) || defined(__amd64__)
+	if (__predict_true(amd_feature & AMDID_RDTSCP))
+		return rdtscp();
+	else
+		return rdtsc();
+#else
+	return get_cyclecount();
+#endif
 }
 
 /*
@@ -1740,12 +1755,12 @@ pmc_process_mmap(struct thread *td, struct pmckern_map_in *pkm)
 	const struct pmc_process *pp;
 
 	freepath = fullpath = NULL;
-	MPASS(!in_epoch());
+	MPASS(!in_epoch(global_epoch_preempt));
 	pmc_getfilename((struct vnode *) pkm->pm_file, &fullpath, &freepath);
 
 	pid = td->td_proc->p_pid;
 
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	/* Inform owners of all system-wide sampling PMCs. */
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 	    if (po->po_flags & PMC_PO_OWNS_LOGFILE)
@@ -1766,7 +1781,7 @@ pmc_process_mmap(struct thread *td, struct pmckern_map_in *pkm)
   done:
 	if (freepath)
 		free(freepath, M_TEMP);
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 }
 
 
@@ -1785,12 +1800,12 @@ pmc_process_munmap(struct thread *td, struct pmckern_map_out *pkm)
 
 	pid = td->td_proc->p_pid;
 
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 	    if (po->po_flags & PMC_PO_OWNS_LOGFILE)
 		pmclog_process_map_out(po, pid, pkm->pm_address,
 		    pkm->pm_address + pkm->pm_size);
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 
 	if ((pp = pmc_find_process_descriptor(td->td_proc, 0)) == NULL)
 		return;
@@ -1812,7 +1827,7 @@ pmc_log_kernel_mappings(struct pmc *pm)
 	struct pmc_owner *po;
 	struct pmckern_map_in *km, *kmbase;
 
-	MPASS(in_epoch() || sx_xlocked(&pmc_sx));
+	MPASS(in_epoch(global_epoch_preempt) || sx_xlocked(&pmc_sx));
 	KASSERT(PMC_IS_SAMPLING_MODE(PMC_TO_MODE(pm)),
 	    ("[pmc,%d] non-sampling PMC (%p) desires mapping information",
 		__LINE__, (void *) pm));
@@ -1821,7 +1836,8 @@ pmc_log_kernel_mappings(struct pmc *pm)
 
 	if (po->po_flags & PMC_PO_INITIAL_MAPPINGS_DONE)
 		return;
-
+	if (PMC_TO_MODE(pm) == PMC_MODE_SS)
+		pmc_process_allproc(pm);
 	/*
 	 * Log the current set of kernel modules.
 	 */
@@ -2093,13 +2109,13 @@ pmc_hook_handler(struct thread *td, int function, void *arg)
 
 		pk = (struct pmckern_procexec *) arg;
 
-		epoch_enter_preempt(global_epoch_preempt);
+		PMC_EPOCH_ENTER();
 		/* Inform owners of SS mode PMCs of the exec event. */
 		CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 		    if (po->po_flags & PMC_PO_OWNS_LOGFILE)
 			    pmclog_process_procexec(po, PMC_ID_INVALID,
 				p->p_pid, pk->pm_entryaddr, fullpath);
-		epoch_exit_preempt(global_epoch_preempt);
+		PMC_EPOCH_EXIT();
 
 		PROC_LOCK(p);
 		is_using_hwpmcs = p->p_flag & P_HWPMC;
@@ -2229,7 +2245,7 @@ pmc_hook_handler(struct thread *td, int function, void *arg)
 		break;
 
 	case PMC_FN_MUNMAP:
-		MPASS(in_epoch() || sx_xlocked(&pmc_sx));
+		MPASS(in_epoch(global_epoch_preempt) || sx_xlocked(&pmc_sx));
 		pmc_process_munmap(td, (struct pmckern_map_out *) arg);
 		break;
 
@@ -2466,7 +2482,7 @@ pmc_find_thread_descriptor(struct pmc_process *pp, struct thread *td,
 	if (mode & PMC_FLAG_ALLOCATE) {
 		if ((ptnew = pmc_thread_descriptor_pool_alloc()) == NULL) {
 			wait_flag = M_WAITOK;
-			if ((mode & PMC_FLAG_NOWAIT) || in_epoch())
+			if ((mode & PMC_FLAG_NOWAIT) || in_epoch(global_epoch_preempt))
 				wait_flag = M_NOWAIT;
 
 			ptnew = malloc(THREADENTRY_SIZE, M_PMC,
@@ -4041,8 +4057,7 @@ pmc_syscall_handler(struct thread *td, void *syscall_args)
 			pmc = NULL;
 			break;
 		}
-		if (mode == PMC_MODE_SS)
-			pmc_process_allproc(pmc);
+
 
 		/*
 		 * Return the allocated index.
@@ -4627,10 +4642,9 @@ pmc_post_callchain_callback(void)
  */
 
 static int
-pmc_add_sample(int cpu, int ring, struct pmc *pm, struct trapframe *tf,
-    int inuserspace)
+pmc_add_sample(int ring, struct pmc *pm, struct trapframe *tf)
 {
-	int error, callchaindepth;
+	int error, cpu, callchaindepth, inuserspace;
 	struct thread *td;
 	struct pmc_sample *ps;
 	struct pmc_samplebuffer *psb;
@@ -4640,8 +4654,9 @@ pmc_add_sample(int cpu, int ring, struct pmc *pm, struct trapframe *tf,
 	/*
 	 * Allocate space for a sample buffer.
 	 */
+	cpu = curcpu;
 	psb = pmc_pcpu[cpu]->pc_sb[ring];
-
+	inuserspace = TRAPF_USERMODE(tf);
 	ps = psb->ps_write;
 	if (ps->ps_nsamples == PMC_SAMPLE_INUSE) {
 		counter_u64_add(ps->ps_pmc->pm_runcount, -1);
@@ -4676,6 +4691,8 @@ pmc_add_sample(int cpu, int ring, struct pmc *pm, struct trapframe *tf,
 	ps->ps_td = td;
 	ps->ps_pid = td->td_proc->p_pid;
 	ps->ps_tid = td->td_tid;
+	ps->ps_tsc = pmc_rdtsc();
+
 	ps->ps_cpu = cpu;
 	ps->ps_flags = inuserspace ? PMC_CC_F_USERSPACE : 0;
 
@@ -4728,19 +4745,18 @@ pmc_add_sample(int cpu, int ring, struct pmc *pm, struct trapframe *tf,
  */
 
 int
-pmc_process_interrupt(int cpu, int ring, struct pmc *pm, struct trapframe *tf,
-    int inuserspace)
+pmc_process_interrupt(int ring, struct pmc *pm, struct trapframe *tf)
 {
 	struct thread *td;
 
 	td = curthread;
 	if ((pm->pm_flags & PMC_F_USERCALLCHAIN) &&
-           (td->td_proc->p_flag & P_KPROC) == 0 &&
-           !inuserspace) {
-		atomic_add_int(&curthread->td_pmcpend, 1);
-		return (pmc_add_sample(cpu, PMC_UR, pm, tf, 0));
+	    (td->td_proc->p_flag & P_KPROC) == 0 &&
+	    !TRAPF_USERMODE(tf)) {
+		atomic_add_int(&td->td_pmcpend, 1);
+		return (pmc_add_sample(PMC_UR, pm, tf));
 	}
-	return (pmc_add_sample(cpu, ring, pm, tf, inuserspace));
+	return (pmc_add_sample(ring, pm, tf));
 }
 
 /*
@@ -5057,11 +5073,11 @@ pmc_process_exit(void *arg __unused, struct proc *p)
 	/*
 	 * Log a sysexit event to all SS PMC owners.
 	 */
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 	    if (po->po_flags & PMC_PO_OWNS_LOGFILE)
 		    pmclog_process_sysexit(po, p->p_pid);
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 
 	if (!is_using_hwpmcs)
 		return;
@@ -5242,13 +5258,13 @@ pmc_process_fork(void *arg __unused, struct proc *p1, struct proc *newproc,
 	 * If there are system-wide sampling PMCs active, we need to
 	 * log all fork events to their owner's logs.
 	 */
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 	    if (po->po_flags & PMC_PO_OWNS_LOGFILE) {
 		    pmclog_process_procfork(po, p1->p_pid, newproc->p_pid);
 			pmclog_process_proccreate(po, newproc, 1);
 		}
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 
 	if (!is_using_hwpmcs)
 		return;
@@ -5314,11 +5330,11 @@ pmc_process_threadcreate(struct thread *td)
 {
 	struct pmc_owner *po;
 
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 	    if (po->po_flags & PMC_PO_OWNS_LOGFILE)
 			pmclog_process_threadcreate(po, td, 1);
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 }
 
 static void
@@ -5326,11 +5342,11 @@ pmc_process_threadexit(struct thread *td)
 {
 	struct pmc_owner *po;
 
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 	    if (po->po_flags & PMC_PO_OWNS_LOGFILE)
 			pmclog_process_threadexit(po, td);
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 }
 
 static void
@@ -5338,11 +5354,11 @@ pmc_process_proccreate(struct proc *p)
 {
 	struct pmc_owner *po;
 
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 	    if (po->po_flags & PMC_PO_OWNS_LOGFILE)
 			pmclog_process_proccreate(po, p, 1 /* sync */);
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 }
 
 static void
@@ -5375,12 +5391,12 @@ pmc_kld_load(void *arg __unused, linker_file_t lf)
 	/*
 	 * Notify owners of system sampling PMCs about KLD operations.
 	 */
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 		if (po->po_flags & PMC_PO_OWNS_LOGFILE)
 			pmclog_process_map_in(po, (pid_t) -1,
 			    (uintfptr_t) lf->address, lf->filename);
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 
 	/*
 	 * TODO: Notify owners of (all) process-sampling PMCs too.
@@ -5393,12 +5409,12 @@ pmc_kld_unload(void *arg __unused, const char *filename __unused,
 {
 	struct pmc_owner *po;
 
-	epoch_enter_preempt(global_epoch_preempt);
+	PMC_EPOCH_ENTER();
 	CK_LIST_FOREACH(po, &pmc_ss_owners, po_ssnext)
 		if (po->po_flags & PMC_PO_OWNS_LOGFILE)
 			pmclog_process_map_out(po, (pid_t) -1,
 			    (uintfptr_t) address, (uintfptr_t) address + size);
-	epoch_exit_preempt(global_epoch_preempt);
+	PMC_EPOCH_EXIT();
 
 	/*
 	 * TODO: Notify owners of process-sampling PMCs.
