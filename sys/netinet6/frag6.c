@@ -495,6 +495,13 @@ insert:
 #endif
 
 	/*
+	 * If first fragment doesn't have the entire header chain drop it per
+	 * rfc7112.
+	 */
+	if (first_frag && !validhdrchain(m))
+		goto dropfrag;
+
+	/*
 	 * Stick new segment in its place;
 	 * check for complete reassembly.
 	 * Move to front of packet queue, as we are
