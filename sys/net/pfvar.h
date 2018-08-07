@@ -621,9 +621,9 @@ struct pf_rule {
 #define PFRULE_IFBOUND		0x00010000	/* if-bound */
 #define PFRULE_STATESLOPPY	0x00020000	/* sloppy state tracking */
 
-#define PFSTATE_HIWAT		10000	/* default state table size */
-#define PFSTATE_ADAPT_START	6000	/* default adaptive timeout start */
-#define PFSTATE_ADAPT_END	12000	/* default adaptive timeout end */
+#define PFSTATE_HIWAT		100000	/* default state table size */
+#define PFSTATE_ADAPT_START	60000	/* default adaptive timeout start */
+#define PFSTATE_ADAPT_END	120000	/* default adaptive timeout end */
 
 
 struct pf_threshold {
@@ -1470,7 +1470,7 @@ struct pf_idhash {
 
 extern u_long		pf_hashmask;
 extern u_long		pf_srchashmask;
-#define	PF_HASHSIZ	(32768)
+#define	PF_HASHSIZ	(131072)
 #define	PF_SRCHASHSIZ	(PF_HASHSIZ/4)
 VNET_DECLARE(struct pf_keyhash *, pf_keyhash);
 VNET_DECLARE(struct pf_idhash *, pf_idhash);

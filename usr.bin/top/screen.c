@@ -54,6 +54,8 @@ static struct termios old_settings;
 static struct termios new_settings;
 static char is_a_terminal = false;
 
+#define NON_INTERACTIVE_MODE_VIRTUAL_SCREEN_WIDTH 1024
+
 void
 init_termcap(bool interactive)
 {
@@ -62,13 +64,13 @@ init_termcap(bool interactive)
     char *term_name;
     int status;
 
-    /* set defaults in case we aren't smart */
-    screen_width = MAX_COLS;
+    screen_width = 0;
     screen_length = 0;
 
     if (!interactive)
     {
 	/* pretend we have a dumb terminal */
+	screen_width = NON_INTERACTIVE_MODE_VIRTUAL_SCREEN_WIDTH;
 	smart_terminal = false;
 	return;
     }
