@@ -29,28 +29,28 @@
 #ifndef _NETINET_UDP_OPTIONS_H_
 #define _NETINET_UDP_OPTIONS_H_
 
-#define UDPOPT_EOL       0
-#define UDPOPT_NOP       1
-#define UDPOPT_OCS       2
-#define UDPOPT_ACS       3
-#define UDPOPT_LITE      4
-#define UDPOPT_MSS       5
-#define UDPOPT_TIME      6
-#define UDPOPT_FRAG      7
-#define UDPOPT_AE        8
-#define UDPOPT_ECHOREQ   9
-#define UDPOPT_ECHORES   10
+#define UDPOPT_EOL	0
+#define UDPOPT_NOP	1
+#define UDPOPT_OCS	2
+#define UDPOPT_ACS	3
+#define UDPOPT_LITE	4
+#define UDPOPT_MSS	5
+#define UDPOPT_FRAG	6
+#define UDPOPT_TIME	7
+#define UDPOPT_AE	8
+#define UDPOPT_REQ	9
+#define UDPOPT_RES	10
 
-#define UDPOLEN_EOL      1
-#define UDPOLEN_NOP      1
-#define UDPOLEN_OCS      2
-#define UDPOLEN_ACS      4
-#define UDPOLEN_LITE     4
-#define UDPOLEN_MSS      4
-#define UDPOLEN_TIME     10
-#define UDPOLEN_FRAG     12
-#define UDPOLEN_ECHOREQ  6
-#define UDPOLEN_ECHORES  6
+#define UDPOLEN_EOL	1
+#define UDPOLEN_NOP	1
+#define UDPOLEN_OCS	2
+#define UDPOLEN_ACS	4
+#define UDPOLEN_LITE	4
+#define UDPOLEN_MSS	4
+#define UDPOLEN_TIME	10
+#define UDPOLEN_FRAG	12
+#define UDPOLEN_ECHOREQ	6
+#define UDPOLEN_ECHORES	6
 
 struct udpopt {
     uint32_t   uo_flags;   /* which options are present */
@@ -63,15 +63,15 @@ struct udpopt {
 #define UOF_ECHOREQ 0x0040      /* echo request */
 #define UOF_ECHORES 0x0080      /* echo response */
 #define UOF_MAXOPT  0x0100
-    uint8_t    uo_ocs;     /* option checksum */
-    uint16_t   uo_acs;     /* alternate checksum */
-    uint32_t   uo_lite;    /* udp lite checksum */
-    uint16_t   uo_mss;     /* maximum segment size */
-    uint32_t   uo_tsval;   /* new timestamp */
-    uint32_t   uo_tsecr;   /* reflected timestamp */
-    uint32_t   uo_rtt;     /* rtt estimate */
-    uint32_t   uo_echoreq; /* echo request value */
-    uint32_t   uo_echores; /* echo response */
+	uint8_t    uo_ocs;     /* option checksum */
+	uint16_t   uo_acs;     /* alternate checksum */
+	uint32_t   uo_lite;    /* udp lite checksum */
+	uint16_t   uo_mss;     /* maximum segment size */
+	uint32_t   uo_tsval;   /* new timestamp */
+	uint32_t   uo_tsecr;   /* reflected timestamp */
+	uint32_t   uo_rtt;     /* rtt estimate */
+	uint32_t   uo_echoreq; /* echo request value */
+	uint32_t   uo_echores; /* echo response */
 };
 
 uint8_t udp_optcksum(uint8_t *, int );
