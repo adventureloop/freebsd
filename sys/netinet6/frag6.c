@@ -495,11 +495,15 @@ insert:
 #endif
 
 	/*
-	 * If first fragment doesn't have the entire header chain drop it per
-	 * rfc7112.
+	 * If first fragment doesn't have a full header chain drop it.
+	 * RFC7112:
+	 *    "When a host fragments an IPv6 datagram, it MUST include the entire
+	 *    IPv6 Header Chain in the First Fragment."
 	 */
-	if (first_frag && !validhdrchain(m))
+	if (first_frag && !ip6_validhdrchain(m, *offp, proto)) {
+		printf("%s: invalid hdr chain on first frag dropping\n", __func__);
 		goto dropfrag;
+	}
 
 	/*
 	 * Stick new segment in its place;

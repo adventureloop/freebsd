@@ -124,6 +124,12 @@ __FBSDID("$FreeBSD$");
 
 #include <netinet6/ip6protosw.h>
 
+#include <netinet/icmp6.h>
+#include <netinet/tcp.h>
+#include <netinet/sctp.h>
+#include <netinet/udp.h>
+#include <netinet/udp_var.h>
+
 extern struct domain inet6domain;
 
 u_char ip6_protox[IPPROTO_MAX];
@@ -1846,6 +1852,96 @@ ip6_lasthdr(const struct mbuf *m, int off, int proto, int *nxtp)
 		off = newoff;
 		proto = *nxtp;
 	}
+}
+
+/*
+ * walk header chain and search for an upper layer header
+ */
+int
+ip6_validhdrchain(const struct mbuf *m, int off, int proto)
+{
+	int newoff;
+	int nxt;
+	int *nxtp = NULL;
+
+	if (!nxtp) {
+		nxt = -1;
+		nxtp = &nxt;
+	}
+	printf("%s: at start proto %d off %d\n", __func__, proto, off);
+	while (1) {
+		newoff = ip6_nexthdr(m, off, proto, nxtp);
+		printf("%s: nxthdr %d newoff %d\n", __func__, *nxtp, newoff);
+
+		/* If we are at the end, stop */
+		if (newoff < 0)
+			return 0;
+		else if (newoff < off)
+			return 0;	/* invalid */
+		else if (newoff == off)
+			return 0;
+
+		off = newoff;
+		proto = *nxtp;
+
+		printf("%s: header proto is: %d\n", __func__, proto);
+		printf("%s: m_pkthdr.len %d off %d pkthdr - off %d\n", __func__,
+			m->m_pkthdr.len, off, m->m_pkthdr.len -  off);
+
+		//int remaining = m->m_pkthdr.len - off;
+	
+		NOW WRITE TESTS FOR EACH OF THESE CASE
+
+		switch (proto) {
+		case IPPROTO_UDP:
+		case IPPROTO_UDPLITE:
+			if (m->m_pkthdr.len < (off + sizeof(struct udphdr))) {
+				printf("%s: UDP(-lite) not enough upper layer header\n", __func__);
+				return 0;
+			}
+			printf("%s: UDP(-lite) enough upper layer header\n", __func__);
+			return 1;
+		case IPPROTO_TCP:
+			if (m->m_pkthdr.len < (off + TCP_MAXHLEN)) {
+				printf("%s: TCP not enough upper layer header\n", __func__);
+				return 0;
+			}
+			printf("%s: TCP enough upper layer header\n", __func__);
+			return 1;
+		case IPPROTO_SCTP:
+			if (m->m_pkthdr.len < (off + sizeof(struct sctphdr))) {
+				printf("%s: SCTP not enough upper layer header\n", __func__);
+				return 0;
+			}
+			printf("%s: SCTP enough upper layer header\n", __func__);
+			return 1;
+		case IPPROTO_ICMPV6:
+			if (m->m_pkthdr.len < (off + sizeof(struct icmp6_hdr))) {
+				printf("%s: ICMPv6 not enough upper layer header\n", __func__);
+				return 0;
+			}
+			printf("%s: ICMPv6 enough upper layer header\n", __func__);
+			return 1;
+		case IPPROTO_IPV6:
+			if (m->m_pkthdr.len < (off + sizeof(struct ip6_hdr))) {
+				printf("%s: IP6 not enough upper layer header (IP in IP)\n", __func__);
+				return 0;
+			}
+			printf("%s: IP enough upper layer header\n", __func__);
+			return 1;
+		case IPPROTO_ESP:
+			if (m->m_pkthdr.len < (off + sizeof(uint32_t))) {
+				printf("%s: ESP not enough upper layer header\n", __func__);
+				return 0;
+			}
+			printf("%s: ESP enough upper layer header\n", __func__);
+			return 1;
+		default: 
+			/* Unknown upper layer header error */
+			printf("%s: unknown value, continuing\n", __func__);
+		}
+	}
+	return 0;
 }
 
 /*
