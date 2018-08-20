@@ -14,6 +14,52 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
+
+#include <math.h>
+
+#include "math_private.h"
+
+/*
+ * Polynomial evaluator:
+ *  P[0] x^n  +  P[1] x^(n-1)  +  ...  +  P[n]
+ */
+static inline long double
+__polevll(long double x, long double *PP, int n)
+{
+	long double y;
+	long double *P;
+
+	P = PP;
+	y = *P++;
+	do {
+		y = y * x + *P++;
+	} while (--n);
+
+	return (y);
+}
+
+/*
+ * Polynomial evaluator:
+ *  x^n  +  P[0] x^(n-1)  +  P[1] x^(n-2)  +  ...  +  P[n]
+ */
+static inline long double
+__p1evll(long double x, long double *PP, int n)
+{
+	long double y;
+	long double *P;
+
+	P = PP;
+	n -= 1;
+	y = x + *P++;
+	do {
+		y = y * x + *P++;
+	} while (--n);
+
+	return (y);
+}
+
 /*							powl.c
  *
  *	Power function, long double precision
@@ -216,9 +262,9 @@ if( x == 1.0L )
 	return( 1.0L );
 
 if( isnan(x) )
-	return( x );
+	return ( nan_mix(x, y) );
 if( isnan(y) )
-	return( y );
+	return ( nan_mix(x, y) );
 
 if( y == 1.0L )
 	return( x );
@@ -467,7 +513,7 @@ return( z );
 
 
 /* Find a multiple of 1/NXT that is within 1/NXT of x. */
-static long double
+static inline long double
 reducl(long double x)
 {
 long double t;
