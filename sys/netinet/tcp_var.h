@@ -220,6 +220,23 @@ struct tcpcb {
 	struct mbufq t_inpkts;		/* List of saved input packets. */
 	struct mbufq t_outpkts;		/* List of saved output packets. */
 #endif
+/* NewCWV releated state */
+/* TODO needs cache alignment */
+	struct {
+		u_int32_t pipeack;
+		u_int32_t psp;                  /* pipeack sampling period */
+
+		u_int32_t head;
+		u_int32_t psample[4];	/* pipe ack samples */
+		u_int32_t time_stamp[4];	/* time stamp samples */
+		u_int32_t prev_snd_una;	/* previous snd_una in this sampe */
+		u_int32_t prev_snd_nxt;	/* previous snd_nxt in this sampe */
+
+		u_int32_t loss_flight_size;	/* flightsize at loss detection */
+		u_int32_t prior_retrans;	/* Retransmission before going into FR */
+		u_int32_t cwnd_valid_ts;	/*last time cwnd was found valid */
+		u_int32_t init_cwnd;	/* The inital cwnd */
+      } newcwv;
 };
 #endif	/* _KERNEL || _WANT_TCPCB */
 
@@ -767,6 +784,7 @@ VNET_DECLARE(int, tcp_do_rfc3042);
 VNET_DECLARE(int, tcp_do_rfc3390);
 VNET_DECLARE(int, tcp_do_rfc3465);
 VNET_DECLARE(int, tcp_do_rfc6675_pipe);
+VNET_DECLARE(int, tcp_do_rfc7661);
 VNET_DECLARE(int, tcp_do_sack);
 VNET_DECLARE(int, tcp_do_tso);
 VNET_DECLARE(int, tcp_ecn_maxretries);
@@ -802,6 +820,7 @@ VNET_DECLARE(struct inpcbinfo, tcbinfo);
 #define	V_tcp_do_rfc3390		VNET(tcp_do_rfc3390)
 #define	V_tcp_do_rfc3465		VNET(tcp_do_rfc3465)
 #define	V_tcp_do_rfc6675_pipe		VNET(tcp_do_rfc6675_pipe)
+#define	V_tcp_do_rfc7661		VNET(tcp_do_rfc7661)
 #define	V_tcp_do_sack			VNET(tcp_do_sack)
 #define	V_tcp_do_tso			VNET(tcp_do_tso)
 #define	V_tcp_ecn_maxretries		VNET(tcp_ecn_maxretries)

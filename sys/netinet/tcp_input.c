@@ -114,6 +114,7 @@ __FBSDID("$FreeBSD$");
 #include <netinet/tcp_pcap.h>
 #endif
 #include <netinet/tcp_syncache.h>
+#include <netinet/tcp_newcwv.h>
 #ifdef TCPDEBUG
 #include <netinet/tcp_debug.h>
 #endif /* TCPDEBUG */
@@ -154,6 +155,11 @@ VNET_DEFINE(int, tcp_do_rfc6675_pipe) = 0;
 SYSCTL_INT(_net_inet_tcp, OID_AUTO, rfc6675_pipe, CTLFLAG_VNET | CTLFLAG_RW,
     &VNET_NAME(tcp_do_rfc6675_pipe), 0,
     "Use calculated pipe/in-flight bytes per RFC 6675");
+
+VNET_DEFINE(int, tcp_do_rfc7661) = 0;
+SYSCTL_INT(_net_inet_tcp, OID_AUTO, 7661_newcwv, CTLFLAG_RW,
+    &VNET_NAME(tcp_do_rfc7661), 0,
+    "Enable RFC7661  (New Congestion Window Validation)");
 
 VNET_DEFINE(int, tcp_do_rfc3042) = 1;
 SYSCTL_INT(_net_inet_tcp, OID_AUTO, rfc3042, CTLFLAG_VNET | CTLFLAG_RW,
@@ -302,9 +308,11 @@ cc_ack_received(struct tcpcb *tp, struct tcphdr *th, uint16_t nsegs,
 
 	tp->ccv->nsegs = nsegs;
 	tp->ccv->bytes_this_ack = BYTES_THIS_ACK(tp, th);
-	if (tp->snd_cwnd <= tp->snd_wnd)
+	if (tp->snd_cwnd <= tp->snd_wnd ||
+		(V_tcp_do_rfc7661 && tp->newcwv.pipeack >= (tp->snd_cwnd >> 1)) ) {
 		tp->ccv->flags |= CCF_CWND_LIMITED;
-	else
+		tp->newcwv.cwnd_valid_ts = ticks;
+	} else
 		tp->ccv->flags &= ~CCF_CWND_LIMITED;
 
 	if (type == CC_ACK) {
@@ -326,6 +334,12 @@ cc_ack_received(struct tcpcb *tp, struct tcphdr *th, uint16_t nsegs,
 		tp->ccv->curack = th->th_ack;
 		CC_ALGO(tp)->ack_received(tp->ccv, type);
 	}
+	/*
+	 * Update rfc7661  pipeack.
+	 */
+	if(V_tcp_do_rfc7661 && !IN_FASTRECOVERY(tp->t_flags))
+		tcp_newcwv_update_pipeack(tp);
+                                                    
 }
 
 void 
@@ -396,6 +410,11 @@ cc_conn_init(struct tcpcb *tp)
 		else
 			tp->snd_cwnd = 4 * maxseg;
 	}
+	/*
+	 * Initialise NewCWV state
+	 */
+	tp->newcwv.init_cwnd = tp->snd_cwnd;
+	tcp_newcwv_reset(tp);
 
 	if (CC_ALGO(tp)->conn_init != NULL)
 		CC_ALGO(tp)->conn_init(tp->ccv);
@@ -448,6 +467,11 @@ cc_cong_signal(struct tcpcb *tp, struct tcphdr *th, uint32_t type)
 		tp->t_badrxtwin = 0;
 		break;
 	}
+	
+	if (V_tcp_do_rfc7661 && 
+			(type == CC_NDUPACK || type == CC_ECN) &&
+				tp->newcwv.pipeack <= (tp->snd_cwnd >> 1) )
+		tcp_newcwv_enter_recovery(tp);
 
 	if (CC_ALGO(tp)->cong_signal != NULL) {
 		if (th != NULL)
@@ -469,6 +493,13 @@ cc_post_recovery(struct tcpcb *tp, struct tcphdr *th)
 	}
 	/* XXXLAS: EXIT_RECOVERY ? */
 	tp->t_bytes_acked = 0;
+
+	if(V_tcp_do_rfc7661 ) {                       
+		if(tp->newcwv.loss_flight_size)     
+			tcp_newcwv_end_recovery(tp);
+		tcp_newcwv_reset(tp);               
+	}
+	tp->newcwv.loss_flight_size = 0;
 }
 
 /*

@@ -4307,6 +4307,7 @@ netinet/tcp_reass.c		optional inet | inet6
 netinet/tcp_sack.c		optional inet | inet6
 netinet/tcp_subr.c		optional inet | inet6
 netinet/tcp_syncache.c		optional inet | inet6
+netinet/tcp_newcwv.c		optional inet | inet6
 netinet/tcp_timer.c		optional inet | inet6
 netinet/tcp_timewait.c		optional inet | inet6
 netinet/tcp_usrreq.c		optional inet | inet6

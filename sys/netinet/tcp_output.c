@@ -79,6 +79,7 @@ __FBSDID("$FreeBSD$");
 #include <netinet/tcp_timer.h>
 #include <netinet/tcp_var.h>
 #include <netinet/tcpip.h>
+#include <netinet/tcp_newcwv.h>
 #include <netinet/cc/cc.h>
 #include <netinet/tcp_fastopen.h>
 #ifdef TCPPCAP
@@ -751,6 +752,10 @@ send:
 	else
 #endif
 		hdrlen = sizeof (struct tcpiphdr);
+
+	/* Trigger the newcwv timer */
+	if(V_tcp_do_rfc7661)
+		tcp_newcwv_datalim_closedown(tp);
 
 	/*
 	 * Compute options for segment.
