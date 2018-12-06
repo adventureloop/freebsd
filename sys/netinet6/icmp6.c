@@ -361,6 +361,7 @@ icmp6_error(struct mbuf *m, int type, int code, int param)
 	 * OK, ICMP6 can be generated.
 	 */
 
+printf("here %d\n", __LINE__);
 	if (m->m_pkthdr.len >= ICMPV6_PLD_MAXLEN)
 		m_adj(m, ICMPV6_PLD_MAXLEN - m->m_pkthdr.len);
 

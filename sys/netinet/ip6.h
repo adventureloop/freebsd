@@ -163,6 +163,9 @@ struct ip6_dest {
 
 #define IP6OPT_MUTABLE		0x20
 
+#define IP6OPT_HBHMTU		0x3E	/* IANA RFC3692-style Experiment */
+#define IP6OPT_HBHMTU_LEN	4
+
 /* IPv6 options: common part */
 struct ip6_opt {
 	u_int8_t ip6o_type;

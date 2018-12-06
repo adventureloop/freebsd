@@ -202,7 +202,7 @@ VNET_PCPUSTAT_SYSUNINIT(ip6stat);
 struct rmlock in6_ifaddr_lock;
 RM_SYSINIT(in6_ifaddr_lock, &in6_ifaddr_lock, "in6_ifaddr_lock");
 
-static int ip6_hopopts_input(u_int32_t *, u_int32_t *, struct mbuf **, int *);
+static int ip6_hopopts_input(u_int32_t *, u_int32_t *, u_int16_t *, struct mbuf **, int *);
 #ifdef PULLDOWN_TEST
 static struct mbuf *ip6_pullexthdr(struct mbuf *, size_t, int);
 #endif
@@ -405,12 +405,13 @@ VNET_SYSUNINIT(inet6, SI_SUB_PROTO_DOMAIN, SI_ORDER_THIRD, ip6_destroy, NULL);
 
 static int
 ip6_input_hbh(struct mbuf *m, uint32_t *plen, uint32_t *rtalert, int *off,
-    int *nxt, int *ours)
+    int *nxt, int *ours, u_int16_t *hbhmtu)
 {
 	struct ip6_hdr *ip6;
 	struct ip6_hbh *hbh;
 
-	if (ip6_hopopts_input(plen, rtalert, &m, off)) {
+	printf("input hbh\n");
+	if (ip6_hopopts_input(plen, rtalert, hbhmtu, &m, off)) {
 #if 0	/*touches NULL pointer*/
 		in6_ifstat_inc(m->m_pkthdr.rcvif, ifs6_in_discard);
 #endif
@@ -549,6 +550,7 @@ ip6_input(struct mbuf *m)
 	int off = sizeof(struct ip6_hdr), nest;
 	int nxt, ours = 0;
 	int srcrt = 0;
+	u_int16_t hbhmtu = 0;
 
 	/*
 	 * Drop the packet if IPv6 operation is disabled on the interface.
@@ -857,7 +859,7 @@ passin:
 	 */
 	plen = (u_int32_t)ntohs(ip6->ip6_plen);
 	if (ip6->ip6_nxt == IPPROTO_HOPOPTS) {
-		if (ip6_input_hbh(m, &plen, &rtalert, &off, &nxt, &ours) != 0)
+		if (ip6_input_hbh(m, &plen, &rtalert, &off, &nxt, &ours, &hbhmtu) != 0)
 			return;
 	} else
 		nxt = ip6->ip6_nxt;
@@ -868,6 +870,11 @@ passin:
 	 */
 	if (rtalert != ~0)
 		m->m_flags |= M_RTALERT_MLD;
+
+	/* use the presence of a hbhmtu as a signal that it is there */
+	printf("hbhmtu %d ours %d\n", hbhmtu, ours);
+	if (hbhmtu != 0 && ours) 
+		icmp6_error(m, ICMP6_PACKET_TOO_BIG, 0, min(hbhmtu, IN6_LINKMTU(rcvif)));
 
 	/*
 	 * Check that the amount of data in the buffers
@@ -977,7 +984,7 @@ bad:
  * rtalertp - XXX: should be stored more smart way
  */
 static int
-ip6_hopopts_input(u_int32_t *plenp, u_int32_t *rtalertp,
+ip6_hopopts_input(u_int32_t *plenp, u_int32_t *rtalertp, u_int16_t *hbhmtu,
     struct mbuf **mp, int *offp)
 {
 	struct mbuf *m = *mp;
@@ -1010,7 +1017,7 @@ ip6_hopopts_input(u_int32_t *plenp, u_int32_t *rtalertp,
 	off += hbhlen;
 	hbhlen -= sizeof(struct ip6_hbh);
 	if (ip6_process_hopopts(m, (u_int8_t *)hbh + sizeof(struct ip6_hbh),
-				hbhlen, rtalertp, plenp) < 0)
+				hbhlen, rtalertp, plenp, hbhmtu) < 0)
 		return (-1);
 
 	*offp = off;
@@ -1030,12 +1037,12 @@ ip6_hopopts_input(u_int32_t *plenp, u_int32_t *rtalertp,
  */
 int
 ip6_process_hopopts(struct mbuf *m, u_int8_t *opthead, int hbhlen,
-    u_int32_t *rtalertp, u_int32_t *plenp)
+    u_int32_t *rtalertp, u_int32_t *plenp, u_int16_t *hbhmtu)
 {
 	struct ip6_hdr *ip6;
 	int optlen = 0;
 	u_int8_t *opt = opthead;
-	u_int16_t rtalert_val;
+	u_int16_t rtalert_val, optmtu;
 	u_int32_t jumboplen;
 	const int erroff = sizeof(struct ip6_hdr) + sizeof(struct ip6_hbh);
 
@@ -1067,6 +1074,26 @@ ip6_process_hopopts(struct mbuf *m, u_int8_t *opthead, int hbhlen,
 			optlen = IP6OPT_RTALERT_LEN;
 			bcopy((caddr_t)(opt + 2), (caddr_t)&rtalert_val, 2);
 			*rtalertp = ntohs(rtalert_val);
+			break;
+		case IP6OPT_HBHMTU:
+			if (hbhlen < IP6OPT_HBHMTU_LEN) {
+				IP6STAT_INC(ip6s_toosmall);
+				goto bad;
+			}
+			optlen = IP6OPT_HBHMTU_LEN;
+			bcopy((caddr_t)(opt + 2), (caddr_t)&optmtu, 2);
+			printf("HBH MTU option: %4D\n", opt, " ");
+			printf("hbhmtu parse optmtu %d\n", optmtu);
+			optmtu = ntohs(optmtu);
+			printf("hbhmtu parse optmtu %d\n", optmtu);
+
+			if (*hbhmtu != 0 && optmtu > *hbhmtu) {
+				optmtu = htons(*hbhmtu);
+				bcopy((caddr_t)&optmtu, (caddr_t)(opt + 2), 2);
+			} 
+			*hbhmtu = optmtu;
+				
+			printf("hbhmtu parse hbhmtu: %d optmtu: %d\n", *hbhmtu, optmtu);
 			break;
 		case IP6OPT_JUMBO:
 			/* XXX may need check for alignment */
