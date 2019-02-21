@@ -402,6 +402,7 @@ void	ip6_clearpktopts(struct ip6_pktopts *, int);
 struct ip6_pktopts *ip6_copypktopts(struct ip6_pktopts *, int);
 int	ip6_optlen(struct inpcb *);
 int	ip6_deletefraghdr(struct mbuf *, int, int);
+int	ip6_validhdrchain(struct mbuf *, int, uint8_t, uint16_t);
 int	ip6_fragment(struct ifnet *, struct mbuf *, int, u_char, int,
 			uint32_t);
 

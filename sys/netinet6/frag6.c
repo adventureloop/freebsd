@@ -66,6 +66,13 @@ __FBSDID("$FreeBSD$");
 #include <netinet/in_systm.h>	/* for ECN definitions */
 #include <netinet/ip.h>		/* for ECN definitions */
 
+#include <netinet/ip_var.h>
+#include <netinet/tcp.h>
+#include <netinet/sctp.h>
+#include <netinet/udp.h>
+#include <netinet/dccp.h>
+#include <net/if_gre.h>
+
 #include <security/mac/mac_framework.h>
 
 /*
@@ -330,6 +337,20 @@ frag6_input(struct mbuf **mp, int *offp, int proto)
 		    )
 			break;
 
+	/*
+	 * If first fragment (frag offset is 0) doesn't have contain an upper
+	 * layer header drop it per RFC7112.
+	 */
+	fragoff = ntohs(ip6f->ip6f_offlg & IP6F_OFF_MASK);
+	if (fragoff == 0 &&
+		!ip6_validhdrchain(m, offset, ip6f->ip6f_nxt, frgpartlen)) {
+
+		/* remove any fragments that have arrived */
+		if (q6 != head)
+			frag6_freef(q6, hash);
+		goto dropfrag;
+	}
+
 	if (q6 == head) {
 		/*
 		 * the first fragment to arrive, create a reassembly queue.
@@ -384,7 +405,6 @@ frag6_input(struct mbuf **mp, int *offp, int proto)
 	 * If it's the 1st fragment, record the length of the
 	 * unfragmentable part and the next header of the fragment header.
 	 */
-	fragoff = ntohs(ip6f->ip6f_offlg & IP6F_OFF_MASK);
 	if (fragoff == 0) {
 		q6->ip6q_unfrglen = offset - sizeof(struct ip6_hdr) -
 		    sizeof(struct ip6_frag);
@@ -960,4 +980,88 @@ ip6_deletefraghdr(struct mbuf *m, int offset, int wait)
 
 	m->m_flags |= M_FRAGMENTED;
 	return (0);
+}
+
+/*
+ * Ensure that proto is an upper layer header and there is enough space for the
+ * upper layer header.
+ */
+int
+ip6_validhdrchain(struct mbuf *m, int offset, uint8_t proto, uint16_t length)
+{
+	struct ipv6_hdr *ip6;
+	struct ip *ip4;
+	struct tcphdr *tp;
+	struct dccphdr *dccp;
+	uint16_t hdrlen;
+
+	ip6 = mtod(m, struct ipv6_hdr *);
+
+	switch (proto) {
+	case IPPROTO_ICMPV6:
+		if (length < sizeof(struct icmp6_hdr))
+			return 0;
+		return 1;
+	case IPPROTO_IPV6:
+		if (length < sizeof(struct ip6_hdr))
+			return 0;
+		return 1;
+	case IPPROTO_ESP:
+		if (length < sizeof(uint32_t))
+			return 0;
+		return 1;
+	case IPPROTO_SCTP:
+		if (length < sizeof(struct sctphdr))
+			return 0;
+		return 1;
+	case IPPROTO_TCP:
+		if (length < sizeof(struct tcphdr))
+			return 0;
+		/* Get the tcp header in the first mbuf. */
+		if (m->m_len < offset + sizeof(struct tcphdr))
+			if ((m = m_pullup(m, offset + sizeof(struct tcphdr))) == NULL)
+				return 0;
+		tp = (struct tcphdr *)((caddr_t)ip6 + offset);
+		hdrlen = tp->th_off << 2;
+		if (length < hdrlen)
+			return 0;
+		return 1;
+	case IPPROTO_UDP:
+	case IPPROTO_UDPLITE:
+		if (length < sizeof(struct udphdr))
+			return 0;
+		return 1;
+	case IPPROTO_DCCP:
+		if (length < DCCP_SHORTHDR)
+			return 0;
+		/* Get the dccp short header in the first mbuf. */
+		if (m->m_len < offset + DCCP_SHORTHDR)
+			if ((m = m_pullup(m, offset + DCCP_SHORTHDR)) == NULL)
+				return 0;
+		dccp = (struct dccphdr *)((caddr_t)ip6 + offset);
+		hdrlen = dccp->d_extseq;
+		if (hdrlen & DCCP_EXTHDR && length < DCCP_LONGHDR)
+			return 0;
+		return 1;
+	case IPPROTO_IP:
+		if (length < sizeof(struct ip))
+			return 0;
+		/* Get the ip header in the first mbuf. */
+		if (m->m_len < offset + sizeof(struct ip))
+			if ((m = m_pullup(m, offset + sizeof(struct ip))) == NULL)
+				return 0;
+		ip4 = (struct ip *)((caddr_t)ip6 + offset);
+		hdrlen = ip4->ip_hl << 2;
+		if (length < hdrlen)
+			return 0;
+		return 1;
+	case IPPROTO_GRE:
+		if (length < sizeof(struct grehdr))
+			return 0;
+		return 1;
+	default:
+		/* not a known upper layer protocol */
+		return 0;
+	}
+	return 0;
 }
