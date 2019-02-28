@@ -338,12 +338,12 @@ frag6_input(struct mbuf **mp, int *offp, int proto)
 			break;
 
 	/*
-	 * If first fragment (frag offset is 0) doesn't have contain an upper
+	 * If first fragment (frag offset is 0) doesn't have a valid upper
 	 * layer header drop it per RFC7112.
 	 */
 	fragoff = ntohs(ip6f->ip6f_offlg & IP6F_OFF_MASK);
 	if (fragoff == 0 &&
-		!ip6_validhdrchain(m, offset, ip6f->ip6f_nxt, frgpartlen)) {
+		!ip6_validhdrchain(&m, offset, ip6f->ip6f_nxt, frgpartlen)) {
 
 		/* remove any fragments that have arrived */
 		if (q6 != head)
@@ -777,7 +777,7 @@ frag6_freef(struct ip6q *q6, uint32_t bucket)
 			/* restore source and destination addresses */
 			ip6->ip6_src = q6->ip6q_src;
 			ip6->ip6_dst = q6->ip6q_dst;
-
+find the correct error to return; "we might need to teach frag6_freef to deal with different error codes"
 			icmp6_error(m, ICMP6_TIME_EXCEEDED,
 				    ICMP6_TIME_EXCEED_REASSEMBLY, 0);
 		} else
@@ -987,14 +987,16 @@ ip6_deletefraghdr(struct mbuf *m, int offset, int wait)
  * upper layer header.
  */
 int
-ip6_validhdrchain(struct mbuf *m, int offset, uint8_t proto, uint16_t length)
+ip6_validhdrchain(struct mbuf **mp, int offset, uint8_t proto, uint16_t length)
 {
+	struct mbuf *m;
 	struct ipv6_hdr *ip6;
 	struct ip *ip4;
 	struct tcphdr *tp;
 	struct dccphdr *dccp;
 	uint16_t hdrlen;
 
+	m = *mp;
 	ip6 = mtod(m, struct ipv6_hdr *);
 
 	switch (proto) {
@@ -1019,8 +1021,10 @@ ip6_validhdrchain(struct mbuf *m, int offset, uint8_t proto, uint16_t length)
 			return 0;
 		/* Get the tcp header in the first mbuf. */
 		if (m->m_len < offset + sizeof(struct tcphdr))
-			if ((m = m_pullup(m, offset + sizeof(struct tcphdr))) == NULL)
+			if ((m = m_pullup(m, offset + sizeof(struct tcphdr))) == NULL) {
+				*mp = NULL;
 				return 0;
+			}
 		tp = (struct tcphdr *)((caddr_t)ip6 + offset);
 		hdrlen = tp->th_off << 2;
 		if (length < hdrlen)
@@ -1036,8 +1040,10 @@ ip6_validhdrchain(struct mbuf *m, int offset, uint8_t proto, uint16_t length)
 			return 0;
 		/* Get the dccp short header in the first mbuf. */
 		if (m->m_len < offset + DCCP_SHORTHDR)
-			if ((m = m_pullup(m, offset + DCCP_SHORTHDR)) == NULL)
+			if ((m = m_pullup(m, offset + DCCP_SHORTHDR)) == NULL) {
+				*mp = NULL;
 				return 0;
+			}
 		dccp = (struct dccphdr *)((caddr_t)ip6 + offset);
 		hdrlen = dccp->d_extseq;
 		if (hdrlen & DCCP_EXTHDR && length < DCCP_LONGHDR)
@@ -1048,8 +1054,10 @@ ip6_validhdrchain(struct mbuf *m, int offset, uint8_t proto, uint16_t length)
 			return 0;
 		/* Get the ip header in the first mbuf. */
 		if (m->m_len < offset + sizeof(struct ip))
-			if ((m = m_pullup(m, offset + sizeof(struct ip))) == NULL)
+			if ((m = m_pullup(m, offset + sizeof(struct ip))) == NULL) {
+				*mp = NULL;
 				return 0;
+			}
 		ip4 = (struct ip *)((caddr_t)ip6 + offset);
 		hdrlen = ip4->ip_hl << 2;
 		if (length < hdrlen)
@@ -1063,5 +1071,4 @@ ip6_validhdrchain(struct mbuf *m, int offset, uint8_t proto, uint16_t length)
 		/* not a known upper layer protocol */
 		return 0;
 	}
-	return 0;
 }

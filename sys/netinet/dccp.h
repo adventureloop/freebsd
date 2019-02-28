@@ -25,7 +25,6 @@
  * SUCH DAMAGE.
  *
  */
-
 #ifndef _NETINET_DCCP_H_
 #define _NETINET_DCCP_H_
 
@@ -36,10 +35,25 @@ struct dccphdr {
 	uint16_t	d_sport;
 	uint16_t	d_dport;
 	uint8_t		d_doff;
-	uint8_t		d_ccval;
+#if BYTE_ORDER == LITTLE_ENDIAN
+	uint8_t		d_cscov:4,
+			d_ccval:4;
+#endif
+#if BYTE_ORDER == BIG_ENDIAN
+	uint8_t		d_ccval:4,
+			d_cscov:4;
+#endif
 	uint16_t	d_cksum;
-	uint8_t		d_extseq;
-	uint8_t		d_xxx;
+#if BYTE_ORDER == LITTLE_ENDIAN
+	uint8_t		d_res:3,
+			d_type:4;
+			d_x:1;
+#endif
+#if BYTE_ORDER == BIG_ENDIAN
+	uint8_t		d_x:1,
+			d_type:4;
+			d_res:3;
+#endif
 	uint8_t		d_seq[6];
 };
 
