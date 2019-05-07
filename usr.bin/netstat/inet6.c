@@ -1035,6 +1035,8 @@ icmp6_stats(u_long off, const char *name, int af1 __unused, int proto __unused)
 	    "{N:/unrecognized next header}\n");
 	p_5(icp6s_oparamprob_option, "\t\t{:bad-option/%ju} "
 	    "{N:/unrecognized option}\n");
+	p_5(icp6s_oparamprob_fraghdrchain, "\t\t{:bad-header-chain/%ju} "
+	    "{N:/incomplete upper layer first fragment}\n");
 	p_5(icp6s_oredirect, "\t\t{:redirects/%ju} "
 	    "{N:/redirect}\n");
 	p_5(icp6s_ounknown, "\t\t{:unknown/%ju} {N:unknown}\n");

@@ -210,6 +210,9 @@ icmp6_errcount(int type, int code)
 		case ICMP6_PARAMPROB_OPTION:
 			ICMP6STAT_INC(icp6s_oparamprob_option);
 			return;
+		case ICMP6_PARAMPROB_FRAGHDRCHAIN:
+			ICMP6STAT_INC(icp6s_oparamprob_fraghdrchain);
+			return;
 		}
 		break;
 	case ND_REDIRECT:
@@ -535,6 +538,7 @@ icmp6_input(struct mbuf **mp, int *offp, int proto)
 			break;
 		case ICMP6_PARAMPROB_HEADER:
 		case ICMP6_PARAMPROB_OPTION:
+		case ICMP6_PARAMPROB_FRAGHDRCHAIN:
 			code = PRC_PARAMPROB;
 			break;
 		default:

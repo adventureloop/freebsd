@@ -46,12 +46,12 @@ struct dccphdr {
 	uint16_t	d_cksum;
 #if BYTE_ORDER == LITTLE_ENDIAN
 	uint8_t		d_res:3,
-			d_type:4;
+			d_type:4,
 			d_x:1;
 #endif
 #if BYTE_ORDER == BIG_ENDIAN
 	uint8_t		d_x:1,
-			d_type:4;
+			d_type:4,
 			d_res:3;
 #endif
 	uint8_t		d_seq[6];

@@ -156,6 +156,7 @@ struct icmp6_hdr {
 #define ICMP6_PARAMPROB_HEADER 	 	0	/* erroneous header field */
 #define ICMP6_PARAMPROB_NEXTHEADER	1	/* unrecognized next header */
 #define ICMP6_PARAMPROB_OPTION		2	/* unrecognized option */
+#define ICMP6_PARAMPROB_FRAGHDRCHAIN	3	/* first fragment has incomplete header chain */
 
 #define ICMP6_INFOMSG_MASK		0x80	/* all informational messages */
 
@@ -587,6 +588,7 @@ struct icmp6errstat {
 	uint64_t icp6errs_paramprob_header;
 	uint64_t icp6errs_paramprob_nextheader;
 	uint64_t icp6errs_paramprob_option;
+	uint64_t icp6errs_paramprob_fraghdrchain;
 	uint64_t icp6errs_redirect; /* we regard redirect as an error here */
 	uint64_t icp6errs_unknown;
 };
@@ -626,6 +628,8 @@ struct icmp6stat {
 #define icp6s_oparamprob_nextheader \
 	icp6s_outerrhist.icp6errs_paramprob_nextheader
 #define icp6s_oparamprob_option icp6s_outerrhist.icp6errs_paramprob_option
+#define icp6s_oparamprob_fraghdrchain \
+	icp6s_outerrhist.icp6errs_paramprob_fraghdrchain
 #define icp6s_oredirect icp6s_outerrhist.icp6errs_redirect
 #define icp6s_ounknown icp6s_outerrhist.icp6errs_unknown
 	uint64_t icp6s_pmtuchg;		/* path MTU changes */
