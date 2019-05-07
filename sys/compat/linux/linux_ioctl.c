@@ -81,6 +81,7 @@ __FBSDID("$FreeBSD$");
 #include <machine/../linux/linux_proto.h>
 #endif
 
+#include <compat/linux/linux_common.h>
 #include <compat/linux/linux_ioctl.h>
 #include <compat/linux/linux_mib.h>
 #include <compat/linux/linux_socket.h>
@@ -161,17 +162,19 @@ DATA_SET(linux_ioctl_handler_set, video2_handler);
 DATA_SET(linux_ioctl_handler_set, fbsd_usb);
 DATA_SET(linux_ioctl_handler_set, evdev_handler);
 
-struct handler_element
-{
-	TAILQ_ENTRY(handler_element) list;
-	int	(*func)(struct thread *, struct linux_ioctl_args *);
-	int	low, high, span;
-};
-
-static TAILQ_HEAD(, handler_element) handlers =
-    TAILQ_HEAD_INITIALIZER(handlers);
+#ifdef __i386__
+static TAILQ_HEAD(, linux_ioctl_handler_element) linux_ioctl_handlers =
+    TAILQ_HEAD_INITIALIZER(linux_ioctl_handlers);
 static struct sx linux_ioctl_sx;
 SX_SYSINIT(linux_ioctl, &linux_ioctl_sx, "Linux ioctl handlers");
+#else
+extern TAILQ_HEAD(, linux_ioctl_handler_element) linux_ioctl_handlers;
+extern struct sx linux_ioctl_sx;
+#endif
+#ifdef COMPAT_LINUX32
+static TAILQ_HEAD(, linux_ioctl_handler_element) linux32_ioctl_handlers =
+    TAILQ_HEAD_INITIALIZER(linux32_ioctl_handlers);
+#endif
 
 /*
  * hdio related ioctls for VMWare support
@@ -684,6 +687,7 @@ bsd_to_linux_termio(struct termios *bios, struct linux_termio *lio)
 {
 	struct linux_termios lios;
 
+	memset(lio, 0, sizeof(*lio));
 	bsd_to_linux_termios(bios, &lios);
 	lio->c_iflag = lios.c_iflag;
 	lio->c_oflag = lios.c_oflag;
@@ -2119,56 +2123,6 @@ linux_ioctl_console(struct thread *td, struct linux_ioctl_args *args)
 }
 
 /*
- * Criteria for interface name translation
- */
-#define IFP_IS_ETH(ifp) (ifp->if_type == IFT_ETHER)
-
-/*
- * Translate a Linux interface name to a FreeBSD interface name,
- * and return the associated ifnet structure
- * bsdname and lxname need to be least IFNAMSIZ bytes long, but
- * can point to the same buffer.
- */
-
-static struct ifnet *
-ifname_linux_to_bsd(struct thread *td, const char *lxname, char *bsdname)
-{
-	struct ifnet *ifp;
-	int len, unit;
-	char *ep;
-	int is_eth, index;
-
-	for (len = 0; len < LINUX_IFNAMSIZ; ++len)
-		if (!isalpha(lxname[len]))
-			break;
-	if (len == 0 || len == LINUX_IFNAMSIZ)
-		return (NULL);
-	unit = (int)strtoul(lxname + len, &ep, 10);
-	if (ep == NULL || ep == lxname + len || ep >= lxname + LINUX_IFNAMSIZ)
-		return (NULL);
-	index = 0;
-	is_eth = (len == 3 && !strncmp(lxname, "eth", len)) ? 1 : 0;
-	CURVNET_SET(TD_TO_VNET(td));
-	IFNET_RLOCK();
-	CK_STAILQ_FOREACH(ifp, &V_ifnet, if_link) {
-		/*
-		 * Allow Linux programs to use FreeBSD names. Don't presume
-		 * we never have an interface named "eth", so don't make
-		 * the test optional based on is_eth.
-		 */
-		if (strncmp(ifp->if_xname, lxname, LINUX_IFNAMSIZ) == 0)
-			break;
-		if (is_eth && IFP_IS_ETH(ifp) && unit == index++)
-			break;
-	}
-	IFNET_RUNLOCK();
-	CURVNET_RESTORE();
-	if (ifp != NULL)
-		strlcpy(bsdname, ifp->if_xname, IFNAMSIZ);
-	return (ifp);
-}
-
-/*
  * Implement the SIOCGIFNAME ioctl
  */
 
@@ -2329,50 +2283,20 @@ linux_gifflags(struct thread *td, struct ifnet *ifp, struct l_ifreq *ifr)
 {
 	l_short flags;
 
-	flags = (ifp->if_flags | ifp->if_drv_flags) & 0xffff;
-	/* these flags have no Linux equivalent */
-	flags &= ~(IFF_DRV_OACTIVE|IFF_SIMPLEX|
-	    IFF_LINK0|IFF_LINK1|IFF_LINK2);
-	/* Linux' multicast flag is in a different bit */
-	if (flags & IFF_MULTICAST) {
-		flags &= ~IFF_MULTICAST;
-		flags |= 0x1000;
-	}
+	linux_ifflags(ifp, &flags);
 
 	return (copyout(&flags, &ifr->ifr_flags, sizeof(flags)));
 }
 
-#define ARPHRD_ETHER	1
-#define ARPHRD_LOOPBACK	772
-
 static int
 linux_gifhwaddr(struct ifnet *ifp, struct l_ifreq *ifr)
 {
-	struct ifaddr *ifa;
-	struct sockaddr_dl *sdl;
 	struct l_sockaddr lsa;
 
-	if (ifp->if_type == IFT_LOOP) {
-		bzero(&lsa, sizeof(lsa));
-		lsa.sa_family = ARPHRD_LOOPBACK;
-		return (copyout(&lsa, &ifr->ifr_hwaddr, sizeof(lsa)));
-	}
-
-	if (ifp->if_type != IFT_ETHER)
+	if (linux_ifhwaddr(ifp, &lsa) != 0)
 		return (ENOENT);
 
-	CK_STAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
-		sdl = (struct sockaddr_dl*)ifa->ifa_addr;
-		if (sdl != NULL && (sdl->sdl_family == AF_LINK) &&
-		    (sdl->sdl_type == IFT_ETHER)) {
-			bzero(&lsa, sizeof(lsa));
-			lsa.sa_family = ARPHRD_ETHER;
-			bcopy(LLADDR(sdl), lsa.sa_data, LINUX_IFHWADDRLEN);
-			return (copyout(&lsa, &ifr->ifr_hwaddr, sizeof(lsa)));
-		}
-	}
-
-	return (ENOENT);
+	return (copyout(&lsa, &ifr->ifr_hwaddr, sizeof(lsa)));
 }
 
 
@@ -2841,6 +2765,8 @@ linux_to_bsd_v4l_window(struct l_video_window *lvw, struct video_window *vw)
 static int
 bsd_to_linux_v4l_window(struct video_window *vw, struct l_video_window *lvw)
 {
+	memset(lvw, 0, sizeof(*lvw));
+
 	lvw->x = vw->x;
 	lvw->y = vw->y;
 	lvw->width = vw->width;
@@ -3684,7 +3610,7 @@ int
 linux_ioctl(struct thread *td, struct linux_ioctl_args *args)
 {
 	struct file *fp;
-	struct handler_element *he;
+	struct linux_ioctl_handler_element *he;
 	int error, cmd;
 
 #ifdef DEBUG
@@ -3705,7 +3631,20 @@ linux_ioctl(struct thread *td, struct linux_ioctl_args *args)
 	cmd = args->cmd & 0xffff;
 	sx_slock(&linux_ioctl_sx);
 	mtx_lock(&Giant);
-	TAILQ_FOREACH(he, &handlers, list) {
+#ifdef COMPAT_LINUX32
+	TAILQ_FOREACH(he, &linux32_ioctl_handlers, list) {
+		if (cmd >= he->low && cmd <= he->high) {
+			error = (*he->func)(td, args);
+			if (error != ENOIOCTL) {
+				mtx_unlock(&Giant);
+				sx_sunlock(&linux_ioctl_sx);
+				fdrop(fp, td);
+				return (error);
+			}
+		}
+	}
+#endif
+	TAILQ_FOREACH(he, &linux_ioctl_handlers, list) {
 		if (cmd >= he->low && cmd <= he->high) {
 			error = (*he->func)(td, args);
 			if (error != ENOIOCTL) {
@@ -3737,7 +3676,7 @@ linux_ioctl(struct thread *td, struct linux_ioctl_args *args)
 int
 linux_ioctl_register_handler(struct linux_ioctl_handler *h)
 {
-	struct handler_element *he, *cur;
+	struct linux_ioctl_handler_element *he, *cur;
 
 	if (h == NULL || h->func == NULL)
 		return (EINVAL);
@@ -3747,7 +3686,7 @@ linux_ioctl_register_handler(struct linux_ioctl_handler *h)
 	 * create a new element.
 	 */
 	sx_xlock(&linux_ioctl_sx);
-	TAILQ_FOREACH(he, &handlers, list) {
+	TAILQ_FOREACH(he, &linux_ioctl_handlers, list) {
 		if (he->func == h->func)
 			break;
 	}
@@ -3756,7 +3695,7 @@ linux_ioctl_register_handler(struct linux_ioctl_handler *h)
 		    M_LINUX, M_WAITOK);
 		he->func = h->func;
 	} else
-		TAILQ_REMOVE(&handlers, he, list);
+		TAILQ_REMOVE(&linux_ioctl_handlers, he, list);
 
 	/* Initialize range information. */
 	he->low = h->low;
@@ -3764,14 +3703,14 @@ linux_ioctl_register_handler(struct linux_ioctl_handler *h)
 	he->span = h->high - h->low + 1;
 
 	/* Add the element to the list, sorted on span. */
-	TAILQ_FOREACH(cur, &handlers, list) {
+	TAILQ_FOREACH(cur, &linux_ioctl_handlers, list) {
 		if (cur->span > he->span) {
 			TAILQ_INSERT_BEFORE(cur, he, list);
 			sx_xunlock(&linux_ioctl_sx);
 			return (0);
 		}
 	}
-	TAILQ_INSERT_TAIL(&handlers, he, list);
+	TAILQ_INSERT_TAIL(&linux_ioctl_handlers, he, list);
 	sx_xunlock(&linux_ioctl_sx);
 
 	return (0);
@@ -3780,15 +3719,15 @@ linux_ioctl_register_handler(struct linux_ioctl_handler *h)
 int
 linux_ioctl_unregister_handler(struct linux_ioctl_handler *h)
 {
-	struct handler_element *he;
+	struct linux_ioctl_handler_element *he;
 
 	if (h == NULL || h->func == NULL)
 		return (EINVAL);
 
 	sx_xlock(&linux_ioctl_sx);
-	TAILQ_FOREACH(he, &handlers, list) {
+	TAILQ_FOREACH(he, &linux_ioctl_handlers, list) {
 		if (he->func == h->func) {
-			TAILQ_REMOVE(&handlers, he, list);
+			TAILQ_REMOVE(&linux_ioctl_handlers, he, list);
 			sx_xunlock(&linux_ioctl_sx);
 			free(he, M_LINUX);
 			return (0);
@@ -3798,3 +3737,69 @@ linux_ioctl_unregister_handler(struct linux_ioctl_handler *h)
 
 	return (EINVAL);
 }
+
+#ifdef COMPAT_LINUX32
+int
+linux32_ioctl_register_handler(struct linux_ioctl_handler *h)
+{
+	struct linux_ioctl_handler_element *he, *cur;
+
+	if (h == NULL || h->func == NULL)
+		return (EINVAL);
+
+	/*
+	 * Reuse the element if the handler is already on the list, otherwise
+	 * create a new element.
+	 */
+	sx_xlock(&linux_ioctl_sx);
+	TAILQ_FOREACH(he, &linux32_ioctl_handlers, list) {
+		if (he->func == h->func)
+			break;
+	}
+	if (he == NULL) {
+		he = malloc(sizeof(*he), M_LINUX, M_WAITOK);
+		he->func = h->func;
+	} else
+		TAILQ_REMOVE(&linux32_ioctl_handlers, he, list);
+
+	/* Initialize range information. */
+	he->low = h->low;
+	he->high = h->high;
+	he->span = h->high - h->low + 1;
+
+	/* Add the element to the list, sorted on span. */
+	TAILQ_FOREACH(cur, &linux32_ioctl_handlers, list) {
+		if (cur->span > he->span) {
+			TAILQ_INSERT_BEFORE(cur, he, list);
+			sx_xunlock(&linux_ioctl_sx);
+			return (0);
+		}
+	}
+	TAILQ_INSERT_TAIL(&linux32_ioctl_handlers, he, list);
+	sx_xunlock(&linux_ioctl_sx);
+
+	return (0);
+}
+
+int
+linux32_ioctl_unregister_handler(struct linux_ioctl_handler *h)
+{
+	struct linux_ioctl_handler_element *he;
+
+	if (h == NULL || h->func == NULL)
+		return (EINVAL);
+
+	sx_xlock(&linux_ioctl_sx);
+	TAILQ_FOREACH(he, &linux32_ioctl_handlers, list) {
+		if (he->func == h->func) {
+			TAILQ_REMOVE(&linux32_ioctl_handlers, he, list);
+			sx_xunlock(&linux_ioctl_sx);
+			free(he, M_LINUX);
+			return (0);
+		}
+	}
+	sx_xunlock(&linux_ioctl_sx);
+
+	return (EINVAL);
+}
+#endif

@@ -908,8 +908,12 @@ complete_service(struct netconfig *nconf, char *port_str)
 		if (fd < 0)
 			continue;
 
+		/*
+		 * Using -1 tells listen(2) to use
+		 * kern.ipc.soacceptqueue for the backlog.
+		 */
 		if (nconf->nc_semantics != NC_TPI_CLTS)
-			listen(fd, SOMAXCONN);
+			listen(fd, -1);
 
 		if (nconf->nc_semantics == NC_TPI_CLTS )
 			transp = svc_dg_create(fd, 0, 0);
@@ -1022,8 +1026,13 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 		syslog(LOG_ERR, "request from unknown address family");
 		return;
 	}
-	lookup_failed = getnameinfo(saddr, saddr->sa_len, host, sizeof host, 
-	    NULL, 0, 0);
+	switch (rqstp->rq_proc) {
+	case MOUNTPROC_MNT:
+	case MOUNTPROC_UMNT:
+	case MOUNTPROC_UMNTALL:
+		lookup_failed = getnameinfo(saddr, saddr->sa_len, host,
+		    sizeof host, NULL, 0, 0);
+	}
 	getnameinfo(saddr, saddr->sa_len, numerichost,
 	    sizeof numerichost, NULL, 0, NI_NUMERICHOST);
 	switch (rqstp->rq_proc) {
@@ -2815,18 +2824,27 @@ static void
 nextfield(char **cp, char **endcp)
 {
 	char *p;
+	char quot = 0;
 
 	p = *cp;
 	while (*p == ' ' || *p == '\t')
 		p++;
-	if (*p == '\n' || *p == '\0')
-		*cp = *endcp = p;
-	else {
-		*cp = p++;
-		while (*p != ' ' && *p != '\t' && *p != '\n' && *p != '\0')
-			p++;
-		*endcp = p;
-	}
+	*cp = p;
+	while (*p != '\0') {
+		if (quot) {
+			if (*p == quot)
+				quot = 0;
+		} else {
+			if (*p == '\\' && *(p + 1) != '\0')
+				p++;
+			else if (*p == '\'' || *p == '"')
+				quot = *p;
+			else if (*p == ' ' || *p == '\t')
+				break;
+		}
+		p++;
+	};
+	*endcp = p;
 }
 
 /*
@@ -2898,8 +2916,8 @@ parsecred(char *namelist, struct xucred *cr)
 	/*
 	 * Get the user's password table entry.
 	 */
-	names = strsep_quote(&namelist, " \t\n");
-	name = strsep(&names, ":");
+	names = namelist;
+	name = strsep_quote(&names, ":");
 	/* Bug?  name could be NULL here */
 	if (isdigit(*name) || *name == '-')
 		pw = getpwuid(atoi(name));
@@ -2943,7 +2961,7 @@ parsecred(char *namelist, struct xucred *cr)
 	}
 	cr->cr_ngroups = 0;
 	while (names != NULL && *names != '\0' && cr->cr_ngroups < XU_NGROUPS) {
-		name = strsep(&names, ":");
+		name = strsep_quote(&names, ":");
 		if (isdigit(*name) || *name == '-') {
 			cr->cr_groups[cr->cr_ngroups++] = atoi(name);
 		} else {

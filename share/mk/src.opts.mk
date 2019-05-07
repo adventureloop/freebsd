@@ -71,6 +71,7 @@ __DEFAULT_YES_OPTIONS = \
     BOOTPARAMD \
     BOOTPD \
     BSD_CPIO \
+    BSD_CRTBEGIN \
     BSDINSTALL \
     BSNMP \
     BZIP2 \
@@ -82,14 +83,13 @@ __DEFAULT_YES_OPTIONS = \
     CPP \
     CROSS_COMPILER \
     CRYPT \
-    CTM \
     CUSE \
     CXX \
+    CXGBETOOL \
     DIALOG \
     DICT \
     DMAGENT \
     DYNAMICROOT \
-    ED_CRYPTO \
     EE \
     EFI \
     ELFTOOLCHAIN_BOOTSTRAP \
@@ -108,9 +108,11 @@ __DEFAULT_YES_OPTIONS = \
     GDB \
     GNU_DIFF \
     GNU_GREP \
+    GOOGLETEST \
     GPIO \
     HAST \
     HTML \
+    HYPERV \
     ICONV \
     INET \
     INET6 \
@@ -140,12 +142,14 @@ __DEFAULT_YES_OPTIONS = \
     MAIL \
     MAILWRAPPER \
     MAKE \
+    MLX5TOOL \
     NDIS \
     NETCAT \
     NETGRAPH \
     NLS_CATALOGS \
     NS_CACHING \
     NTP \
+    NVME \
     OFED \
     OPENSSL \
     PAM \
@@ -178,7 +182,6 @@ __DEFAULT_YES_OPTIONS = \
     TELNET \
     TEXTPROC \
     TFTP \
-    TIMED \
     UNBOUND \
     USB \
     UTMPX \
@@ -187,17 +190,22 @@ __DEFAULT_YES_OPTIONS = \
     WIRELESS \
     WPA_SUPPLICANT_EAPOL \
     ZFS \
+    LOADER_ZFS \
     ZONEINFO
 
 __DEFAULT_NO_OPTIONS = \
+    BEARSSL \
     BSD_GREP \
     CLANG_EXTRAS \
     DTRACE_TESTS \
+    EXPERIMENTAL \
     GNU_GREP_COMPAT \
     HESIOD \
     LIBSOFT \
     LOADER_FIREWIRE \
     LOADER_FORCE_LE \
+    LOADER_VERBOSE \
+    LOADER_VERIEXEC_PASS_MANIFEST \
     NAND \
     OFED_EXTRA \
     OPENLDAP \
@@ -213,6 +221,9 @@ __DEFAULT_NO_OPTIONS = \
 __DEFAULT_DEPENDENT_OPTIONS= \
 	CLANG_FULL/CLANG \
 	LLVM_TARGET_ALL/CLANG \
+	LOADER_VERIEXEC/BEARSSL \
+	LOADER_EFI_SECUREBOOT/LOADER_VERIEXEC \
+	VERIEXEC/BEARSSL \
 
 # MK_*_SUPPORT options which default to "yes" unless their corresponding
 # MK_* variable is set to "no".
@@ -264,6 +275,10 @@ __LLVM_TARGET_FILT=	C/(amd64|i386)/x86/:S/sparc64/sparc/:S/arm64/aarch64/
 # Default the given TARGET's LLVM_TARGET support to the value of MK_CLANG.
 .if ${__TT:${__LLVM_TARGET_FILT}} == ${__llt}
 __DEFAULT_DEPENDENT_OPTIONS+=	LLVM_TARGET_${__llt:${__LLVM_TARGET_FILT}:tu}/CLANG
+# Disable other targets for arm and armv6, to work around "relocation truncated
+# to fit" errors with BFD ld, since libllvm.a will get too large to link.
+.elif ${__T} == "arm" || ${__T} == "armv6"
+__DEFAULT_NO_OPTIONS+=LLVM_TARGET_${__llt:tu}
 # aarch64 needs arm for -m32 support.
 .elif ${__TT} == "arm64" && ${__llt} == "arm"
 __DEFAULT_DEPENDENT_OPTIONS+=	LLVM_TARGET_ARM/LLVM_TARGET_AARCH64
@@ -275,6 +290,7 @@ __DEFAULT_DEPENDENT_OPTIONS+=	LLVM_TARGET_${__llt:${__LLVM_TARGET_FILT}:tu}/LLVM
 .endfor
 
 __DEFAULT_NO_OPTIONS+=LLVM_TARGET_BPF
+__DEFAULT_NO_OPTIONS+=LLVM_TARGET_RISCV
 
 .include <bsd.compiler.mk>
 # If the compiler is not C++11 capable, disable Clang and use GCC instead.
@@ -310,11 +326,9 @@ __DEFAULT_YES_OPTIONS+=LLVM_LIBUNWIND
 .else
 __DEFAULT_NO_OPTIONS+=LLVM_LIBUNWIND
 .endif
-.if ${__T} == "aarch64" || ${__T} == "amd64" || ${__T} == "armv7"
+.if ${__T} == "aarch64" || ${__T} == "amd64" || ${__T} == "armv7" || \
+    ${__T} == "i386"
 __DEFAULT_YES_OPTIONS+=LLD_BOOTSTRAP LLD_IS_LD
-.elif ${__T} == "i386"
-__DEFAULT_YES_OPTIONS+=LLD_BOOTSTRAP
-__DEFAULT_NO_OPTIONS+=LLD_IS_LD
 .else
 __DEFAULT_NO_OPTIONS+=LLD_BOOTSTRAP LLD_IS_LD
 .endif
@@ -353,42 +367,43 @@ BROKEN_OPTIONS+=LOADER_OFW
 .if ${__T:Marm*} == "" && ${__T:Mmips*} == "" && ${__T:Mpowerpc*} == ""
 BROKEN_OPTIONS+=LOADER_UBOOT
 .endif
-# GELI and Lua in loader currently cause boot failures on sparc64.
-# Further debugging is required.
-.if ${__T} == "sparc64"
+# GELI and Lua in loader currently cause boot failures on sparc64 and powerpc.
+# Further debugging is required -- probably they are just broken on big
+# endian systems generically (they jump to null pointers or try to read
+# crazy high addresses, which is typical of endianness problems).
+.if ${__T} == "sparc64" || ${__T:Mpowerpc*}
 BROKEN_OPTIONS+=LOADER_GELI LOADER_LUA
-.endif
-# Lua in loader currently cause boot failures on powerpc.
-# Further debugging is required.
-.if ${__T} == "powerpc" || ${__T} == "powerpc64"
-BROKEN_OPTIONS+=LOADER_LUA
 .endif
 
 .if ${__T:Mmips64*}
 # profiling won't work on MIPS64 because there is only assembly for o32
 BROKEN_OPTIONS+=PROFILE
 .endif
-.if ${__T} == "aarch64" || ${__T} == "amd64" || ${__T} == "i386" || \
-    ${__T} == "powerpc64" || ${__T} == "sparc64"
-__DEFAULT_YES_OPTIONS+=CXGBETOOL
-__DEFAULT_YES_OPTIONS+=MLX5TOOL
-.else
-__DEFAULT_NO_OPTIONS+=CXGBETOOL
-__DEFAULT_NO_OPTIONS+=MLX5TOOL
+.if ${__T} != "aarch64" && ${__T} != "amd64" && ${__T} != "i386" && \
+    ${__T} != "powerpc64" && ${__T} != "sparc64"
+BROKEN_OPTIONS+=CXGBETOOL
+BROKEN_OPTIONS+=MLX5TOOL
 .endif
 
 # HyperV is currently x86-only
-.if ${__T} == "amd64" || ${__T} == "i386"
-__DEFAULT_YES_OPTIONS+=HYPERV
-.else
-__DEFAULT_NO_OPTIONS+=HYPERV
+.if ${__T} != "amd64" && ${__T} != "i386"
+BROKEN_OPTIONS+=HYPERV
 .endif
 
 # NVME is only x86 and powerpc64
-.if ${__T} == "amd64" || ${__T} == "i386" || ${__T} == "powerpc64"
-__DEFAULT_YES_OPTIONS+=NVME
+.if ${__T} != "amd64" && ${__T} != "i386" && ${__T} != "powerpc64"
+BROKEN_OPTIONS+=NVME
+.endif
+
+# PowerPC and Sparc64 need extra crt*.o files
+.if ${__T:Mpowerpc*} || ${__T:Msparc64}
+BROKEN_OPTIONS+=BSD_CRTBEGIN
+.endif
+
+.if ${COMPILER_FEATURES:Mc++11} && (${__T} == "amd64" || ${__T} == "i386")
+__DEFAULT_YES_OPTIONS+=OPENMP
 .else
-__DEFAULT_NO_OPTIONS+=NVME
+__DEFAULT_NO_OPTIONS+=OPENMP
 .endif
 
 .include <bsd.mkopt.mk>
@@ -420,11 +435,8 @@ MK_${var}:=	no
 # Order is somewhat important.
 #
 .if !${COMPILER_FEATURES:Mc++11}
+MK_GOOGLETEST:=	no
 MK_LLVM_LIBUNWIND:=	no
-.endif
-
-.if ${MK_BINUTILS} == "no"
-MK_GDB:=	no
 .endif
 
 .if ${MK_CAPSICUM} == "no"
@@ -447,6 +459,7 @@ MK_SOURCELESS_UCODE:= no
 
 .if ${MK_CDDL} == "no"
 MK_ZFS:=	no
+MK_LOADER_ZFS:=	no
 MK_CTF:=	no
 .endif
 
@@ -503,6 +516,10 @@ MK_FREEBSD_UPDATE:=	no
 MK_DTRACE_TESTS:= no
 .endif
 
+.if ${MK_TESTS_SUPPORT} == "no"
+MK_GOOGLETEST:=	no
+.endif
+
 .if ${MK_ZONEINFO} == "no"
 MK_ZONEINFO_LEAPSECONDS_SUPPORT:= no
 MK_ZONEINFO_OLD_TIMEZONES_SUPPORT:= no
@@ -530,6 +547,10 @@ MK_LLDB:=	no
 MK_CLANG_EXTRAS:= no
 MK_CLANG_FULL:= no
 MK_LLVM_COV:= no
+.endif
+
+.if ${MK_LOADER_VERIEXEC} == "no"
+MK_LOADER_VERIEXEC_PASS_MANIFEST := no
 .endif
 
 #

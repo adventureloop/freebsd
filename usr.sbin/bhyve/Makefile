@@ -9,8 +9,6 @@ CFLAGS+=-I${SRCTOP}/sys
 PROG=	bhyve
 PACKAGE=	bhyve
 
-DEBUG_FLAGS= -g -O0
-
 MAN=	bhyve.8
 
 BHYVE_SYSDIR?=${SRCTOP}
@@ -73,6 +71,12 @@ SRCS+=	vmm_instruction_emul.c
 
 LIBADD=	vmmapi md pthread z util sbuf cam
 
+.if ${MK_INET_SUPPORT} != "no"
+CFLAGS+=-DINET
+.endif
+.if ${MK_INET6_SUPPORT} != "no"
+CFLAGS+=-DINET6
+.endif
 .if ${MK_OPENSSL} == "no"
 CFLAGS+=-DNO_OPENSSL
 .else

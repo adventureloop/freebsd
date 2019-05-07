@@ -246,7 +246,12 @@
 /* Process management via process descriptors. */
 /* Allows for pdgetpid(2). */
 #define	CAP_PDGETPID		CAPRIGHT(1, 0x0000000000000200ULL)
-/* Allows for pdwait4(2). */
+/*
+ * Allows for pdwait4(2).
+ *
+ * XXX: this constant was imported unused, but is targeted to be implemented
+ *      in the future (bug 235871).
+ */
 #define	CAP_PDWAIT		CAPRIGHT(1, 0x0000000000000400ULL)
 /* Allows for pdkill(2). */
 #define	CAP_PDKILL		CAPRIGHT(1, 0x0000000000000800ULL)
@@ -465,7 +470,13 @@ u_char	cap_rights_to_vmprot(const cap_rights_t *havep);
 /*
  * For the purposes of procstat(1) and similar tools, allow kern_descrip.c to
  * extract the rights from a capability.
+ *
+ * Dereferencing fdep requires filedesc.h, but including it would cause
+ * significant pollution. Instead add a macro for consumers which want it,
+ * most notably kern_descrip.c.
  */
+#define cap_rights_fde_inline(fdep)	(&(fdep)->fde_rights)
+
 const cap_rights_t	*cap_rights_fde(const struct filedescent *fde);
 const cap_rights_t	*cap_rights(struct filedesc *fdp, int fd);
 

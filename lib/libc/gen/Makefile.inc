@@ -193,6 +193,7 @@ SYM_MAPS+=${LIBC_SRCTOP}/gen/Symbol.map
 
 MAN+=	alarm.3 \
 	arc4random.3 \
+	auxv.3 \
 	basename.3 \
 	cap_rights_get.3 \
 	cap_sandboxed.3 \
@@ -321,6 +322,7 @@ MAN+=	alarm.3 \
 
 MLINKS+=arc4random.3 arc4random_buf.3 \
 	arc4random.3 arc4random_uniform.3
+MLINKS+=auxv.3 elf_aux_info.3
 MLINKS+=ctermid.3 ctermid_r.3
 MLINKS+=devname.3 devname_r.3
 MLINKS+=devname.3 fdevname.3
@@ -339,7 +341,8 @@ MLINKS+=dlopen.3 fdlopen.3 \
 	dlopen.3 dlclose.3 \
 	dlopen.3 dlerror.3 \
 	dlopen.3 dlfunc.3 \
-	dlopen.3 dlsym.3
+	dlopen.3 dlsym.3 \
+	dlopen.3 dlvsym.3
 MLINKS+=err.3 err_set_exit.3 \
 	err.3 err_set_file.3 \
 	err.3 errc.3 \
@@ -489,6 +492,7 @@ MLINKS+=setjmp.3 _longjmp.3 \
 	setjmp.3 siglongjmp.3 \
 	setjmp.3 sigsetjmp.3
 MLINKS+=setmode.3 getmode.3
+MLINKS+=setproctitle.3 setproctitle_fast.3
 MLINKS+=sigsetops.3 sigaddset.3 \
 	sigsetops.3 sigdelset.3 \
 	sigsetops.3 sigemptyset.3 \

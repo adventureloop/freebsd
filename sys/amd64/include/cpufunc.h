@@ -116,6 +116,13 @@ clflushopt(u_long addr)
 }
 
 static __inline void
+clwb(u_long addr)
+{
+
+	__asm __volatile("clwb %0" : : "m" (*(char *)addr));
+}
+
+static __inline void
 clts(void)
 {
 
@@ -620,6 +627,22 @@ cpu_mwait(u_long extensions, u_int hints)
 	__asm __volatile("mwait" : : "a" (hints), "c" (extensions));
 }
 
+static __inline uint32_t
+rdpkru(void)
+{
+	uint32_t res;
+
+	__asm __volatile("rdpkru" :  "=a" (res) : "c" (0) : "edx");
+	return (res);
+}
+
+static __inline void
+wrpkru(uint32_t mask)
+{
+
+	__asm __volatile("wrpkru" :  : "a" (mask),  "c" (0), "d" (0));
+}
+
 #ifdef _KERNEL
 /* This is defined in <machine/specialreg.h> but is too painful to get to */
 #ifndef	MSR_FSBASE
@@ -728,6 +751,15 @@ static __inline void
 lldt(u_short sel)
 {
 	__asm __volatile("lldt %0" : : "r" (sel));
+}
+
+static __inline u_short
+sldt(void)
+{
+	u_short sel;
+
+	__asm __volatile("sldt %0" : "=r" (sel));
+	return (sel);
 }
 
 static __inline void

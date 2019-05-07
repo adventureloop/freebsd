@@ -95,6 +95,7 @@ static void	syscall(struct trapframe *frame);
        void	handle_kernel_slb_spill(int, register_t, register_t);
 static int	handle_user_slb_spill(pmap_t pm, vm_offset_t addr);
 extern int	n_slbs;
+static void	normalize_inputs(void);
 #endif
 
 extern vm_offset_t __startkernel;
@@ -147,6 +148,7 @@ static struct powerpc_exception powerpc_exceptions[] = {
 	{ EXC_VECAST_G4,	"altivec assist" },
 	{ EXC_THRM,	"thermal management" },
 	{ EXC_RUNMODETRC,	"run mode/trace" },
+	{ EXC_SOFT_PATCH, "soft patch exception" },
 	{ EXC_LAST,	NULL }
 };
 
@@ -303,11 +305,41 @@ trap(struct trapframe *frame)
 
 		case EXC_FAC:
 			fscr = mfspr(SPR_FSCR);
-			if ((fscr & FSCR_IC_MASK) == FSCR_IC_HTM) {
-				CTR0(KTR_TRAP, "Hardware Transactional Memory subsystem disabled");
+			switch (fscr & FSCR_IC_MASK) {
+			case FSCR_IC_HTM:
+				CTR0(KTR_TRAP,
+				    "Hardware Transactional Memory subsystem disabled");
+				sig = SIGILL;
+				ucode =	ILL_ILLOPC;
+				break;
+			case FSCR_IC_DSCR:
+				td->td_pcb->pcb_flags |= PCB_CFSCR | PCB_CDSCR;
+				fscr |= FSCR_DSCR;
+				mtspr(SPR_DSCR, 0);
+				break;
+			case FSCR_IC_EBB:
+				td->td_pcb->pcb_flags |= PCB_CFSCR;
+				fscr |= FSCR_EBB;
+				mtspr(SPR_EBBHR, 0);
+				mtspr(SPR_EBBRR, 0);
+				mtspr(SPR_BESCR, 0);
+				break;
+			case FSCR_IC_TAR:
+				td->td_pcb->pcb_flags |= PCB_CFSCR;
+				fscr |= FSCR_TAR;
+				mtspr(SPR_TAR, 0);
+				break;
+			case FSCR_IC_LM:
+				td->td_pcb->pcb_flags |= PCB_CFSCR;
+				fscr |= FSCR_LM;
+				mtspr(SPR_LMRR, 0);
+				mtspr(SPR_LMSER, 0);
+				break;
+			default:
+				sig = SIGILL;
+				ucode =	ILL_ILLOPC;
 			}
-			sig = SIGILL;
-			ucode =	ILL_ILLOPC;
+			mtspr(SPR_FSCR, fscr & ~FSCR_IC_MASK);
 			break;
 		case EXC_HEA:
 			sig = SIGILL;
@@ -361,7 +393,7 @@ trap(struct trapframe *frame)
  				sig = SIGTRAP;
 				ucode = TRAP_BRKPT;
 			} else {
-				sig = ppc_instr_emulate(frame, td->td_pcb);
+				sig = ppc_instr_emulate(frame, td);
 				if (sig == SIGILL) {
 					if (frame->srr1 & EXC_PGM_PRIV)
 						ucode = ILL_PRVOPC;
@@ -381,6 +413,17 @@ trap(struct trapframe *frame)
 			sig = SIGBUS;
 			ucode = BUS_OBJERR;
 			break;
+
+#if defined(__powerpc64__) && defined(AIM)
+		case EXC_SOFT_PATCH:
+			/*
+			 * Point to the instruction that generated the exception to execute it again,
+			 * and normalize the register values.
+			 */
+			frame->srr0 -= 4;
+			normalize_inputs();
+			break;
+#endif
 
 		default:
 			trap_fatal(frame);
@@ -438,7 +481,7 @@ trap(struct trapframe *frame)
 		ksiginfo_init_trap(&ksi);
 		ksi.ksi_signo = sig;
 		ksi.ksi_code = (int) ucode; /* XXX, not POSIX */
-		/* ksi.ksi_addr = ? */
+		ksi.ksi_addr = (void *)frame->srr0;
 		ksi.ksi_trapno = type;
 		trapsignal(td, &ksi);
 	}
@@ -455,7 +498,7 @@ trap_fatal(struct trapframe *frame)
 
 	printtrap(frame->exc, frame, 1, (frame->srr1 & PSL_PR));
 #ifdef KDB
-	if (debugger_on_panic) {
+	if (debugger_on_trap) {
 		kdb_why = KDB_WHY_TRAP;
 		handled = kdb_trap(frame->exc, 0, frame);
 		kdb_why = KDB_WHY_UNSET;
@@ -515,6 +558,7 @@ printtrap(u_int vector, struct trapframe *frame, int isfatal, int user)
 	case EXC_DSE:
 	case EXC_DSI:
 	case EXC_DTMISS:
+	case EXC_ALI:
 		printf("   virtual address = 0x%" PRIxPTR "\n", frame->dar);
 		break;
 	case EXC_ISE:
@@ -532,6 +576,7 @@ printtrap(u_int vector, struct trapframe *frame, int isfatal, int user)
 	printf("   current msr     = 0x%" PRIxPTR "\n", mfmsr());
 	printf("   lr              = 0x%" PRIxPTR " (0x%" PRIxPTR ")\n",
 	    frame->lr, frame->lr - (register_t)(__startkernel - KERNBASE));
+	printf("   frame           = %p\n", frame);
 	printf("   curthread       = %p\n", curthread);
 	if (curthread != NULL)
 		printf("          pid = %d, comm = %s\n",
@@ -609,8 +654,6 @@ cpu_fetch_syscall_args(struct thread *td)
 		}
 	}
 
- 	if (p->p_sysent->sv_mask)
-		sa->code &= p->p_sysent->sv_mask;
 	if (sa->code >= p->p_sysent->sv_size)
 		sa->callp = &p->p_sysent->sv_table[0];
 	else
@@ -908,6 +951,49 @@ fix_unaligned(struct thread *td, struct trapframe *frame)
 
 	return (-1);
 }
+
+#if defined(__powerpc64__) && defined(AIM)
+#define MSKNSHL(x, m, n) "(((" #x ") & " #m ") << " #n ")"
+#define MSKNSHR(x, m, n) "(((" #x ") & " #m ") >> " #n ")"
+
+/* xvcpsgndp instruction, built in opcode format.
+ * This can be changed to use mnemonic after a toolchain update.
+ */
+#define XVCPSGNDP(xt, xa, xb) \
+	__asm __volatile(".long (" \
+		MSKNSHL(60, 0x3f, 26) " | " \
+		MSKNSHL(xt, 0x1f, 21) " | " \
+		MSKNSHL(xa, 0x1f, 16) " | " \
+		MSKNSHL(xb, 0x1f, 11) " | " \
+		MSKNSHL(240, 0xff, 3) " | " \
+		MSKNSHR(xa,  0x20, 3) " | " \
+		MSKNSHR(xa,  0x20, 4) " | " \
+		MSKNSHR(xa,  0x20, 5) ")")
+
+/* Macros to normalize 1 or 10 VSX registers */
+#define NORM(x)	XVCPSGNDP(x, x, x)
+#define NORM10(x) \
+	NORM(x ## 0); NORM(x ## 1); NORM(x ## 2); NORM(x ## 3); NORM(x ## 4); \
+	NORM(x ## 5); NORM(x ## 6); NORM(x ## 7); NORM(x ## 8); NORM(x ## 9)
+
+static void
+normalize_inputs(void)
+{
+	unsigned long msr;
+
+	/* enable VSX */
+	msr = mfmsr();
+	mtmsr(msr | PSL_VSX);
+
+	NORM(0);   NORM(1);   NORM(2);   NORM(3);   NORM(4);
+	NORM(5);   NORM(6);   NORM(7);   NORM(8);   NORM(9);
+	NORM10(1); NORM10(2); NORM10(3); NORM10(4); NORM10(5);
+	NORM(60);  NORM(61);  NORM(62);  NORM(63);
+
+	/* restore MSR */
+	mtmsr(msr);
+}
+#endif
 
 #ifdef KDB
 int

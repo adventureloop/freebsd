@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/systm.h>
+#include <sys/domainset.h>
 #include <sys/lock.h>
 #include <sys/kernel.h>
 #include <sys/malloc.h>
@@ -57,7 +58,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/sysctl.h>
 #include <sys/tree.h>
 #include <sys/vmmeter.h>
-#include <sys/seq.h>
 
 #include <ddb/ddb.h>
 
@@ -105,7 +105,8 @@ static struct rwlock_padalign vm_phys_fictitious_reg_lock;
 MALLOC_DEFINE(M_FICT_PAGES, "vm_fictitious", "Fictitious VM pages");
 
 static struct vm_freelist __aligned(CACHE_LINE_SIZE)
-    vm_phys_free_queues[MAXMEMDOM][VM_NFREELIST][VM_NFREEPOOL][VM_NFREEORDER];
+    vm_phys_free_queues[MAXMEMDOM][VM_NFREELIST][VM_NFREEPOOL]
+    [VM_NFREEORDER_MAX];
 
 static int __read_mostly vm_nfreelists;
 
@@ -584,6 +585,42 @@ vm_phys_init(void)
 	}
 
 	rw_init(&vm_phys_fictitious_reg_lock, "vmfctr");
+}
+
+/*
+ * Register info about the NUMA topology of the system.
+ *
+ * Invoked by platform-dependent code prior to vm_phys_init().
+ */
+void
+vm_phys_register_domains(int ndomains, struct mem_affinity *affinity,
+    int *locality)
+{
+#ifdef NUMA
+	int d, i;
+
+	/*
+	 * For now the only override value that we support is 1, which
+	 * effectively disables NUMA-awareness in the allocators.
+	 */
+	d = 0;
+	TUNABLE_INT_FETCH("vm.numa.disabled", &d);
+	if (d)
+		ndomains = 1;
+
+	if (ndomains > 1) {
+		vm_ndomains = ndomains;
+		mem_affinity = affinity;
+		mem_locality = locality;
+	}
+
+	for (i = 0; i < vm_ndomains; i++)
+		DOMAINSET_SET(i, &all_domains);
+#else
+	(void)ndomains;
+	(void)affinity;
+	(void)locality;
+#endif
 }
 
 /*

@@ -638,6 +638,28 @@ INTERRUPT(int_vecast)
 	b	trap_common
 
 
+#ifdef __SPE__
+/*****************************************************************************
+ * Floating point Assist interrupt
+ ****************************************************************************/
+INTERRUPT(int_spe_fpdata)
+	STANDARD_PROLOG(SPR_SPRG1, PC_TEMPSAVE, SPR_SRR0, SPR_SRR1)
+	FRAME_SETUP(SPR_SPRG1, PC_TEMPSAVE, EXC_SPFPD)
+	addi	%r3, %r1, CALLSIZE
+	bl	spe_handle_fpdata
+	FRAME_LEAVE(SPR_SRR0, SPR_SRR1)
+	rfi
+
+INTERRUPT(int_spe_fpround)
+	STANDARD_PROLOG(SPR_SPRG1, PC_TEMPSAVE, SPR_SRR0, SPR_SRR1)
+	FRAME_SETUP(SPR_SPRG1, PC_TEMPSAVE, EXC_SPFPR)
+	addi	%r3, %r1, CALLSIZE
+	bl	spe_handle_fpround
+	FRAME_LEAVE(SPR_SRR0, SPR_SRR1)
+	rfi
+#endif
+
+
 #ifdef HWPMC_HOOKS
 /*****************************************************************************
  * PMC Interrupt
@@ -739,17 +761,15 @@ search_failed:
 
 	/* Load MAS registers. */
 	mtspr	SPR_MAS0, %r29
-	isync
 	mtspr	SPR_MAS1, %r28
-	isync
 	mtspr	SPR_MAS2, %r27
-	isync
 	mtspr	SPR_MAS3, %r23
-	isync
 
-	bl	zero_mas7
+	li	%r23, 0
+	mtspr	SPR_MAS7, %r23
 	bl	zero_mas8
 
+	isync
 	tlbwe
 	msync
 	isync
@@ -884,20 +904,16 @@ tlb_fill_entry:
 
 	/* Load MAS registers. */
 	mtspr	SPR_MAS0, %r29
-	isync
 	mtspr	SPR_MAS1, %r28
-	isync
 	mtspr	SPR_MAS2, %r27
-	isync
 	mtspr	SPR_MAS3, %r22
-	isync
 	mtspr	SPR_MAS7, %r23
-	isync
 
 	mflr	%r21
 	bl	zero_mas8
 	mtlr	%r21
 
+	isync
 	tlbwe
 	isync
 	msync

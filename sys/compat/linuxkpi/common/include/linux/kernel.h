@@ -131,11 +131,17 @@
 #undef PTR_ALIGN
 #define	PTR_ALIGN(p, a)		((__typeof(p))ALIGN((uintptr_t)(p), (a)))
 #define	DIV_ROUND_UP(x, n)	howmany(x, n)
+#define	__KERNEL_DIV_ROUND_UP(x, n)	howmany(x, n)
 #define	DIV_ROUND_UP_ULL(x, n)	DIV_ROUND_UP((unsigned long long)(x), (n))
 #define	FIELD_SIZEOF(t, f)	sizeof(((t *)0)->f)
 
 #define	printk(...)		printf(__VA_ARGS__)
 #define	vprintk(f, a)		vprintf(f, a)
+
+#define	asm			__asm
+
+extern void linux_dump_stack(void);
+#define	dump_stack()		linux_dump_stack()
 
 struct va_format {
 	const char *fmt;
@@ -171,8 +177,12 @@ scnprintf(char *buf, size_t size, const char *fmt, ...)
  * unless DEBUG is defined:
  */
 #ifdef DEBUG
-#define pr_debug(fmt, ...) \
-	log(LOG_DEBUG, fmt, ##__VA_ARGS__)
+extern int linuxkpi_debug;
+#define pr_debug(fmt, ...)					\
+	do {							\
+		if (linuxkpi_debug)				\
+			log(LOG_DEBUG, fmt, ##__VA_ARGS__);	\
+	} while (0)
 #define pr_devel(fmt, ...) \
 	log(LOG_DEBUG, pr_fmt(fmt), ##__VA_ARGS__)
 #else

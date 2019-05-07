@@ -155,17 +155,22 @@ SRCS+=ffs_subr.c ffs_tables.c
 
 CFLAGS.bzipfs.c+= -I${SRCTOP}/contrib/bzip2
 
-# explicit_bzero
+# explicit_bzero and calculate_crc32c
 .PATH: ${SYSDIR}/libkern
-SRCS+=  explicit_bzero.c
+SRCS+=  explicit_bzero.c crc32_libkern.c
 
 # Maybe GELI
 .if ${MK_LOADER_GELI} == "yes"
 .include "${SASRC}/geli/Makefile.inc"
 .endif
 
+.if ${MK_LOADER_VERIEXEC} == "yes" && ${MK_BEARSSL} == "yes"
+.include "${SRCTOP}/lib/libbearssl/Makefile.libsa.inc"
+.include "${SRCTOP}/lib/libsecureboot/Makefile.libsa.inc"
+.endif
+
 # Maybe ZFS
-.if ${MK_ZFS} == "yes"
+.if ${MK_LOADER_ZFS} == "yes"
 .include "${SASRC}/zfs/Makefile.inc"
 .endif
 

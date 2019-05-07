@@ -35,10 +35,11 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <sys/param.h>
 #include <sys/limits.h>
 
 #ifdef _KERNEL
-#include <sys/param.h>
+#include <sys/fail.h>
 #include <sys/kernel.h>
 #include <sys/lock.h>
 #include <sys/malloc.h>
@@ -49,17 +50,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/systm.h>
 
 #include <machine/cpu.h>
-
-#include <crypto/rijndael/rijndael-api-fst.h>
-#include <crypto/sha2/sha256.h>
-
-#include <dev/random/hash.h>
-#include <dev/random/randomdev.h>
-#include <dev/random/random_harvestq.h>
-#include <dev/random/uint128.h>
-#include <dev/random/fortuna.h>
 #else /* !_KERNEL */
-#include <sys/param.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -68,15 +59,18 @@ __FBSDID("$FreeBSD$");
 #include <threads.h>
 
 #include "unit_test.h"
+#endif /* _KERNEL */
 
 #include <crypto/rijndael/rijndael-api-fst.h>
 #include <crypto/sha2/sha256.h>
 
 #include <dev/random/hash.h>
 #include <dev/random/randomdev.h>
+#ifdef _KERNEL
+#include <dev/random/random_harvestq.h>
+#endif
 #include <dev/random/uint128.h>
 #include <dev/random/fortuna.h>
-#endif /* _KERNEL */
 
 /* Defined in FS&K */
 #define	RANDOM_FORTUNA_NPOOLS 32		/* The number of accumulation pools */
@@ -115,7 +109,7 @@ static struct fortuna_state {
 	} fs_pool[RANDOM_FORTUNA_NPOOLS];
 	u_int fs_reseedcount;		/* ReseedCnt */
 	uint128_t fs_counter;		/* C */
-	struct randomdev_key fs_key;	/* K */
+	union randomdev_key fs_key;	/* K */
 	u_int fs_minpoolsize;		/* Extras */
 	/* Extras for the OS */
 #ifdef _KERNEL
@@ -277,15 +271,27 @@ random_fortuna_reseed_internal(uint32_t *entropy_data, u_int blockcount)
 {
 	struct randomdev_hash context;
 	uint8_t hash[RANDOM_KEYSIZE];
+	const void *keymaterial;
+	size_t keysz;
+	bool seeded;
 
 	RANDOM_RESEED_ASSERT_LOCK_OWNED();
+
+	seeded = random_fortuna_seeded();
+	if (seeded) {
+		randomdev_getkey(&fortuna_state.fs_key, &keymaterial, &keysz);
+		KASSERT(keysz == RANDOM_KEYSIZE, ("%s: key size %zu not %u",
+			__func__, keysz, (unsigned)RANDOM_KEYSIZE));
+	}
+
 	/*-
 	 * FS&K - K = Hd(K|s) where Hd(m) is H(H(0^512|m))
 	 *      - C = C + 1
 	 */
 	randomdev_hash_init(&context);
 	randomdev_hash_iterate(&context, zero_region, RANDOM_ZERO_BLOCKSIZE);
-	randomdev_hash_iterate(&context, &fortuna_state.fs_key, sizeof(fortuna_state.fs_key));
+	if (seeded)
+		randomdev_hash_iterate(&context, keymaterial, keysz);
 	randomdev_hash_iterate(&context, entropy_data, RANDOM_KEYSIZE*blockcount);
 	randomdev_hash_finish(&context, hash);
 	randomdev_hash_init(&context);
@@ -306,18 +312,16 @@ random_fortuna_reseed_internal(uint32_t *entropy_data, u_int blockcount)
 static __inline void
 random_fortuna_genblocks(uint8_t *buf, u_int blockcount)
 {
-	u_int i;
 
 	RANDOM_RESEED_ASSERT_LOCK_OWNED();
-	for (i = 0; i < blockcount; i++) {
-		/*-
-		 * FS&K - r = r|E(K,C)
-		 *      - C = C + 1
-		 */
-		randomdev_encrypt(&fortuna_state.fs_key, &fortuna_state.fs_counter, buf, RANDOM_BLOCKSIZE);
-		buf += RANDOM_BLOCKSIZE;
-		uint128_increment(&fortuna_state.fs_counter);
-	}
+	KASSERT(!uint128_is_zero(fortuna_state.fs_counter), ("FS&K: C != 0"));
+
+	/*
+	 * Fills buf with RANDOM_BLOCKSIZE * blockcount bytes of keystream.
+	 * Increments fs_counter as it goes.
+	 */
+	randomdev_keystream(&fortuna_state.fs_key, &fortuna_state.fs_counter,
+	    buf, blockcount);
 }
 
 /*-
@@ -330,7 +334,7 @@ random_fortuna_genblocks(uint8_t *buf, u_int blockcount)
 static __inline void
 random_fortuna_genrandom(uint8_t *buf, u_int bytecount)
 {
-	static uint8_t temp[RANDOM_BLOCKSIZE*(RANDOM_KEYS_PER_BLOCK)];
+	uint8_t temp[RANDOM_BLOCKSIZE * RANDOM_KEYS_PER_BLOCK];
 	u_int blockcount;
 
 	RANDOM_RESEED_ASSERT_LOCK_OWNED();
@@ -365,53 +369,68 @@ random_fortuna_pre_read(void)
 	u_int i;
 
 	KASSERT(fortuna_state.fs_minpoolsize > 0, ("random: Fortuna threshold must be > 0"));
+	RANDOM_RESEED_LOCK();
 #ifdef _KERNEL
 	/* FS&K - Use 'getsbinuptime()' to prevent reseed-spamming. */
 	now = getsbinuptime();
 #endif
-	RANDOM_RESEED_LOCK();
 
-	if (fortuna_state.fs_pool[0].fsp_length >= fortuna_state.fs_minpoolsize
+	if (fortuna_state.fs_pool[0].fsp_length < fortuna_state.fs_minpoolsize
 #ifdef _KERNEL
 	    /* FS&K - Use 'getsbinuptime()' to prevent reseed-spamming. */
-	    && (now - fortuna_state.fs_lasttime > SBT_1S/10)
+	    || (now - fortuna_state.fs_lasttime <= SBT_1S/10)
 #endif
 	) {
+		RANDOM_RESEED_UNLOCK();
+		return;
+	}
+
 #ifdef _KERNEL
-		fortuna_state.fs_lasttime = now;
+	/*
+	 * When set, pretend we do not have enough entropy to reseed yet.
+	 */
+	KFAIL_POINT_CODE(DEBUG_FP, random_fortuna_pre_read, {
+		if (RETURN_VALUE != 0) {
+			RANDOM_RESEED_UNLOCK();
+			return;
+		}
+	});
 #endif
 
-		/* FS&K - ReseedCNT = ReseedCNT + 1 */
-		fortuna_state.fs_reseedcount++;
-		/* s = \epsilon at start */
-		for (i = 0; i < RANDOM_FORTUNA_NPOOLS; i++) {
-			/* FS&K - if Divides(ReseedCnt, 2^i) ... */
-			if ((fortuna_state.fs_reseedcount % (1 << i)) == 0) {
-				/*-
-				 * FS&K - temp = (P_i)
-				 *      - P_i = \epsilon
-				 *      - s = s|H(temp)
-				 */
-				randomdev_hash_finish(&fortuna_state.fs_pool[i].fsp_hash, temp);
-				randomdev_hash_init(&fortuna_state.fs_pool[i].fsp_hash);
-				fortuna_state.fs_pool[i].fsp_length = 0;
-				randomdev_hash_init(&context);
-				randomdev_hash_iterate(&context, temp, RANDOM_KEYSIZE);
-				randomdev_hash_finish(&context, s + i*RANDOM_KEYSIZE_WORDS);
-			} else
-				break;
-		}
 #ifdef _KERNEL
-		SDT_PROBE2(random, fortuna, event_processor, debug, fortuna_state.fs_reseedcount, fortuna_state.fs_pool);
+	fortuna_state.fs_lasttime = now;
 #endif
-		/* FS&K */
-		random_fortuna_reseed_internal(s, i < RANDOM_FORTUNA_NPOOLS ? i + 1 : RANDOM_FORTUNA_NPOOLS);
-		/* Clean up and secure */
-		explicit_bzero(s, sizeof(s));
-		explicit_bzero(temp, sizeof(temp));
-		explicit_bzero(&context, sizeof(context));
+
+	/* FS&K - ReseedCNT = ReseedCNT + 1 */
+	fortuna_state.fs_reseedcount++;
+	/* s = \epsilon at start */
+	for (i = 0; i < RANDOM_FORTUNA_NPOOLS; i++) {
+		/* FS&K - if Divides(ReseedCnt, 2^i) ... */
+		if ((fortuna_state.fs_reseedcount % (1 << i)) == 0) {
+			/*-
+			    * FS&K - temp = (P_i)
+			    *      - P_i = \epsilon
+			    *      - s = s|H(temp)
+			    */
+			randomdev_hash_finish(&fortuna_state.fs_pool[i].fsp_hash, temp);
+			randomdev_hash_init(&fortuna_state.fs_pool[i].fsp_hash);
+			fortuna_state.fs_pool[i].fsp_length = 0;
+			randomdev_hash_init(&context);
+			randomdev_hash_iterate(&context, temp, RANDOM_KEYSIZE);
+			randomdev_hash_finish(&context, s + i*RANDOM_KEYSIZE_WORDS);
+		} else
+			break;
 	}
+#ifdef _KERNEL
+	SDT_PROBE2(random, fortuna, event_processor, debug, fortuna_state.fs_reseedcount, fortuna_state.fs_pool);
+#endif
+	/* FS&K */
+	random_fortuna_reseed_internal(s, i);
 	RANDOM_RESEED_UNLOCK();
+
+	/* Clean up and secure */
+	explicit_bzero(s, sizeof(s));
+	explicit_bzero(temp, sizeof(temp));
 }
 
 /*-
@@ -432,9 +451,23 @@ random_fortuna_read(uint8_t *buf, u_int bytecount)
 	RANDOM_RESEED_UNLOCK();
 }
 
+#ifdef _KERNEL
+static bool block_seeded_status = false;
+SYSCTL_BOOL(_kern_random, OID_AUTO, block_seeded_status, CTLFLAG_RWTUN,
+    &block_seeded_status, 0,
+    "If non-zero, pretend Fortuna is in an unseeded state.  By setting "
+    "this as a tunable, boot can be tested as if the random device is "
+    "unavailable.");
+#endif
+
 bool
 random_fortuna_seeded(void)
 {
+
+#ifdef _KERNEL
+	if (block_seeded_status)
+		return (false);
+#endif
 
 	return (!uint128_is_zero(fortuna_state.fs_counter));
 }

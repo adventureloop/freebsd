@@ -489,25 +489,6 @@ device		aibs
 # The cpufreq(4) driver provides support for non-ACPI CPU frequency control
 device		cpufreq
 
-# Direct Rendering modules for 3D acceleration.
-device		drm		# DRM core module required by DRM drivers
-device		mach64drm	# ATI Rage Pro, Rage Mobility P/M, Rage XL
-device		mgadrm		# AGP Matrox G200, G400, G450, G550
-device		r128drm		# ATI Rage 128
-device		savagedrm	# S3 Savage3D, Savage4
-device		sisdrm		# SiS 300/305, 540, 630
-device		tdfxdrm		# 3dfx Voodoo 3/4/5 and Banshee
-device		viadrm		# VIA
-options 	DRM_DEBUG	# Include debug printfs (slow)
-
-#
-# mse: Logitech and ATI InPort bus mouse ports
-
-device		mse
-hint.mse.0.at="isa"
-hint.mse.0.port="0x23c"
-hint.mse.0.irq="5"
-
 #
 # Network interfaces:
 #
@@ -663,20 +644,6 @@ device		arcmsr		# Areca SATA II RAID
 #
 options 	TWA_DEBUG		# 0-10; 10 prints the most messages.
 device		twa			# 3ware 9000 series PATA/SATA RAID
-
-#
-# SCSI host adapters:
-#
-# ncv: NCR 53C500 based SCSI host adapters.
-# nsp: Workbit Ninja SCSI-3 based PC Card SCSI host adapters.
-# stg: TMC 18C30, 18C50 based SCSI host adapters.
-
-device		ncv
-device		nsp
-device		stg
-hint.stg.0.at="isa"
-hint.stg.0.port="0x140"
-hint.stg.0.port="11"
 
 #
 # Adaptec FSA RAID controllers, including integrated DELL controllers,
@@ -906,12 +873,6 @@ options 	NKPT=31
 
 #####################################################################
 # ABI Emulation
-
-# Enable iBCS2 runtime support for SCO and ISC binaries
-#options 	IBCS2
-
-# Emulate spx device for client side of SVR3 local X interface
-options 	SPX_HACK
 
 # Enable (32-bit) a.out binary support
 options 	COMPAT_AOUT

@@ -8,7 +8,7 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2018, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2019, Intel Corp.
  * All rights reserved.
  *
  * 2. License
@@ -459,7 +459,7 @@ AdDisassembleOneTable (
      */
     if (AcpiGbl_CaptureComments)
     {
-        strncpy (Table->Signature, AcpiGbl_TableSig, ACPI_NAME_SIZE);
+        strncpy (Table->Signature, AcpiGbl_TableSig, ACPI_NAMESEG_SIZE);
     }
 #endif
 
@@ -576,11 +576,11 @@ AdDisassembleOneTable (
                 DisasmFilename, CmGetFileSize (File));
         }
 
-        if (Gbl_MapfileFlag)
+        if (AslGbl_MapfileFlag)
         {
             fprintf (stderr, "%14s %s - %u bytes\n",
-                Gbl_Files[ASL_FILE_MAP_OUTPUT].ShortDescription,
-                Gbl_Files[ASL_FILE_MAP_OUTPUT].Filename,
+                AslGbl_FileDescs[ASL_FILE_MAP_OUTPUT].ShortDescription,
+                AslGbl_Files[ASL_FILE_MAP_OUTPUT].Filename,
                 FlGetFileSize (ASL_FILE_MAP_OUTPUT));
         }
     }

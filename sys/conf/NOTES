@@ -150,7 +150,7 @@ options 	BOOTHOWTO=RB_MULTIPLE
 #
 # Default boot tag; may use 'kern.boot_tag' loader tunable to override.  The
 # current boot's tag is also exposed via the 'kern.boot_tag' sysctl.
-options 	BOOT_TAG=\"---<<BOOT>>---\"
+options 	BOOT_TAG=\"\"
 # Maximum boot tag size the kernel's static buffer should accomodate.  Maximum
 # size for both BOOT_TAG and the assocated tunable.
 options 	BOOT_TAG_SZ=32
@@ -376,6 +376,9 @@ options 	COMPAT_FREEBSD10
 # Enable FreeBSD11 compatibility syscalls
 options 	COMPAT_FREEBSD11
 
+# Enable FreeBSD12 compatibility syscalls
+options 	COMPAT_FREEBSD12
+
 # Enable Linux Kernel Programming Interface
 options 	COMPAT_LINUXKPI
 
@@ -563,8 +566,10 @@ options 	KASSERT_PANIC_OPTIONAL
 
 #
 # The DIAGNOSTIC option is used to enable extra debugging information
-# from some parts of the kernel.  As this makes everything more noisy,
-# it is disabled by default.
+# and invariants checking.  The added checks are too expensive or noisy
+# for an INVARIANTS kernel and thus are disabled by default.  It is
+# expected that a kernel configured with DIAGNOSTIC will also have the
+# INVARIANTS option enabled.
 #
 options 	DIAGNOSTIC
 
@@ -767,6 +772,7 @@ options 	NETGRAPH_BLUETOOTH_UBTBCMFW	# ubtbcmfw(4)
 options 	NETGRAPH_BPF
 options 	NETGRAPH_BRIDGE
 options 	NETGRAPH_CAR
+options 	NETGRAPH_CHECKSUM
 options 	NETGRAPH_CISCO
 options 	NETGRAPH_DEFLATE
 options 	NETGRAPH_DEVICE
@@ -842,7 +848,6 @@ device		vxlan
 #  and ath drivers and will eventually be required by all 802.11 drivers.
 device		wlan
 options 	IEEE80211_DEBUG		#enable debugging msgs
-options 	IEEE80211_AMPDU_AGE	#age frames in AMPDU reorder q's
 options 	IEEE80211_SUPPORT_MESH	#enable 802.11s D3.0 support
 options 	IEEE80211_SUPPORT_TDMA	#enable TDMA support
 
@@ -1071,7 +1076,7 @@ options 	NFSCL			#Network File System client
 options 	AUTOFS			#Automounter filesystem
 options 	CD9660			#ISO 9660 filesystem
 options 	FDESCFS			#File descriptor filesystem
-options 	FUSE			#FUSE support module
+options 	FUSEFS			#FUSEFS support module
 options 	MSDOSFS			#MS DOS File System (FAT, FAT32)
 options 	NFSLOCKD		#Network Lock Manager
 options 	NFSD			#Network Filesystem Server
@@ -1488,6 +1493,7 @@ options 	MAXCONS=16		# number of virtual consoles
 options 	SC_ALT_MOUSE_IMAGE	# simplified mouse cursor in text mode
 options 	SC_DFLT_FONT		# compile font in
 makeoptions	SC_DFLT_FONT=cp850
+options 	SC_DFLT_TERM=\"sc\"	# default terminal emulator
 options 	SC_DISABLE_KDBKEY	# disable `debug' key
 options 	SC_DISABLE_REBOOT	# disable reboot key sequence
 options 	SC_HISTORY_SIZE=200	# number of history buffer lines
@@ -1518,6 +1524,9 @@ options 	SC_NO_HISTORY
 options 	SC_NO_MODE_CHANGE
 options 	SC_NO_SYSMOUSE
 options 	SC_NO_SUSPEND_VTYSWITCH
+#!options 	SC_NO_TERM_DUMB
+#!options 	SC_NO_TERM_SC
+#!options 	SC_NO_TERM_SCTEKEN
 
 # `flags' for sc
 #	0x80	Put the video card in the VESA 800x600 dots, 16 color mode
@@ -1548,15 +1557,9 @@ options		TERMINAL_KERN_ATTR=(FG_LIGHTRED|BG_BLACK)
 #
 # SCSI host adapters:
 #
-# adv: All Narrow SCSI bus AdvanSys controllers.
-# adw: Second Generation AdvanSys controllers including the ADV940UW.
-# aha: Adaptec 154x/1535/1640
 # ahc: Adaptec 274x/284x/2910/293x/294x/394x/3950x/3960x/398X/4944/
 #      19160x/29160x, aic7770/aic78xx
 # ahd: Adaptec 29320/39320 Controllers.
-# aic: Adaptec 6260/6360, APA-1460 (PC Card)
-# bt:  Most Buslogic controllers: including BT-445, BT-54x, BT-64x, BT-74x,
-#      BT-75x, BT-946, BT-948, BT-956, BT-958, SDC3211B, SDC3211F, SDC3222F
 # esp: Emulex ESP, NCR 53C9x and QLogic FAS families based controllers
 #      including the AMD Am53C974 (found on devices such as the Tekram
 #      DC-390(T)) and the Sun ESP and FAS families of controllers
@@ -1567,29 +1570,16 @@ options		TERMINAL_KERN_ATTR=(FG_LIGHTRED|BG_BLACK)
 #      Qlogic ISP 2300 and ISP 2312 2Gb Fibre Channel host adapters.
 #      Qlogic ISP 2322 and ISP 6322 2Gb Fibre Channel host adapters.
 # ispfw: Firmware module for Qlogic host adapters
+# mpr: LSI-Logic MPT/Fusion Gen 3
+# mps: LSI-Logic MPT/Fusion Gen 2
 # mpt: LSI-Logic MPT/Fusion 53c1020 or 53c1030 Ultra4
 #      or FC9x9 Fibre Channel host adapters.
-# ncr: NCR 53C810, 53C825 self-contained SCSI host adapters.
 # sym: Symbios/Logic 53C8XX family of PCI-SCSI I/O processors:
 #      53C810, 53C810A, 53C815, 53C825,  53C825A, 53C860, 53C875,
 #      53C876, 53C885,  53C895, 53C895A, 53C896,  53C897, 53C1510D,
 #      53C1010-33, 53C1010-66.
 # trm: Tekram DC395U/UW/F DC315U adapters.
 
-#
-# Note that the order is important in order for Buslogic ISA cards to be
-# probed correctly.
-#
-device		bt
-hint.bt.0.at="isa"
-hint.bt.0.port="0x330"
-device		adv
-hint.adv.0.at="isa"
-device		adw
-device		aha
-hint.aha.0.at="isa"
-device		aic
-hint.aic.0.at="isa"
 device		ahc
 device		ahd
 device		esp
@@ -1611,8 +1601,9 @@ hint.isp.0.topology="nport-only"
 hint.isp.0.portwnn="w50000000aaaa0000"
 hint.isp.0.nodewnn="w50000000aaaa0001"
 device		ispfw
-device		mpt
-device		ncr
+device		mpr			# LSI-Logic MPT-Fusion 3
+device		mps			# LSI-Logic MPT-Fusion 2
+device		mpt			# LSI-Logic MPT-Fusion
 device		sym
 device		trm
 
@@ -1650,10 +1641,6 @@ options 	AHD_REG_PRETTY_PRINT
 # Bitmap of units to enable targetmode operations.
 options 	AHD_TMODE_ENABLE
 
-# The adw driver will attempt to use memory mapped I/O for all PCI
-# controllers that have it configured only if this option is set.
-options 	ADW_ALLOW_MEMIO
-
 # Options used in dev/iscsi (Software iSCSI stack)
 #
 options 	ISCSI_INITIATOR_DEBUG=9
@@ -1674,39 +1661,12 @@ options 	ISP_TARGET_MODE=1
 #
 options 	ISP_DEFAULT_ROLES=0
 
-# Options used in dev/sym/ (Symbios SCSI driver).
-#options 	SYM_SETUP_LP_PROBE_MAP	#-Low Priority Probe Map (bits)
-					# Allows the ncr to take precedence
-					# 1 (1<<0) -> 810a, 860
-					# 2 (1<<1) -> 825a, 875, 885, 895
-					# 4 (1<<2) -> 895a, 896, 1510d
 #options 	SYM_SETUP_SCSI_DIFF	#-HVD support for 825a, 875, 885
 					# disabled:0 (default), enabled:1
 #options 	SYM_SETUP_PCI_PARITY	#-PCI parity checking
 					# disabled:0, enabled:1 (default)
 #options 	SYM_SETUP_MAX_LUN	#-Number of LUNs supported
 					# default:8, range:[1..64]
-
-# The 'dpt' driver provides support for old DPT controllers (http://www.dpt.com/).
-# These have hardware RAID-{0,1,5} support, and do multi-initiator I/O.
-# The DPT controllers are commonly re-licensed under other brand-names -
-# some controllers by Olivetti, Dec, HP, AT&T, SNI, AST, Alphatronic, NEC and
-# Compaq are actually DPT controllers.
-#
-# See src/sys/dev/dpt for debugging and other subtle options.
-#  DPT_MEASURE_PERFORMANCE  Enables a set of (semi)invasive metrics. Various
-#                           instruments are enabled.  The tools in
-#                           /usr/sbin/dpt_* assume these to be enabled.
-#  DPT_DEBUG_xxxx           These are controllable from sys/dev/dpt/dpt.h
-#  DPT_RESET_HBA            Make "reset" actually reset the controller
-#                           instead of fudging it.  Only enable this if you
-#			    are 100% certain you need it.
-
-device		dpt
-
-# DPT options
-#!CAM# options 	DPT_MEASURE_PERFORMANCE
-options 	DPT_RESET_HBA
 
 #
 # Compaq "CISS" RAID controllers (SmartRAID 5* series)
@@ -1776,7 +1736,7 @@ device		ata
 
 # Modular ATA
 #device		atacore		# Core ATA functionality
-#device		atacard		# CARDBUS support
+#device		atapccard	# CARDBUS support
 #device		ataisa		# ISA bus support
 #device		atapci		# PCI bus support; only generic chipset support
 
@@ -1811,14 +1771,6 @@ hint.ata.0.irq="14"
 hint.ata.1.at="isa"
 hint.ata.1.port="0x170"
 hint.ata.1.irq="15"
-
-#
-# The following options are valid on the ATA driver:
-#
-# ATA_REQUEST_TIMEOUT:	the number of seconds to wait for an ATA request
-#			before timing out.
-
-#options 	ATA_REQUEST_TIMEOUT=10
 
 #
 # Standard floppy disk controllers and floppy tapes, supports
@@ -2145,15 +2097,18 @@ device		vte		# DM&P Vortex86 RDC R6040 Fast Ethernet
 device		wb		# Winbond W89C840F
 device		xl		# 3Com 3c90x (``Boomerang'', ``Cyclone'')
 
+# PCI/PCI-X/PCIe Ethernet NICs that use iflib infrastructure
+device		iflib
+device		em		# Intel Pro/1000 Gigabit Ethernet
+device		ix		# Intel Pro/10Gbe PCIE Ethernet
+device		ixv		# Intel Pro/10Gbe PCIE Ethernet VF
+
 # PCI Ethernet NICs.
 device		cxgb		# Chelsio T3 10 Gigabit Ethernet
 device		cxgb_t3fw	# Chelsio T3 10 Gigabit Ethernet firmware
 device		cxgbe		# Chelsio T4-T6 1/10/25/40/100 Gigabit Ethernet
 device		cxgbev		# Chelsio T4-T6 Virtual Functions
 device		de		# DEC/Intel DC21x4x (``Tulip'')
-device		em		# Intel Pro/1000 Gigabit Ethernet
-device		ix		# Intel Pro/10Gbe PCIE Ethernet
-device		ixv		# Intel Pro/10Gbe PCIE Ethernet VF
 device		le		# AMD Am7900 LANCE and Am79C9xx PCnet
 device		mxge		# Myricom Myri-10G 10GbE NIC
 device		oce		# Emulex 10 GbE (OneConnect Ethernet)
@@ -2174,7 +2129,6 @@ device		ath_hal		# pci/cardbus chip support
 #device		ath_rf5112
 #device		ath_rf5413
 #device		ath_ar5416	# AR5416 chips
-options 	AH_SUPPORT_AR5416	# enable AR5416 tx/rx descriptors
 # All of the AR5212 parts have a problem when paired with the AR71xx
 # CPUS.  These parts have a bug that triggers a fatal bus error on the AR71xx
 # only.  Details of the exact nature of the bug are sketchy, but some can be
@@ -2366,12 +2320,8 @@ options		SND_OLDSTEREO
 # Miscellaneous hardware:
 #
 # bktr: Brooktree bt848/848a/849a/878/879 video capture and TV Tuner board
-# joy: joystick (including IO DATA PCJOY PC Card joystick)
 # cmx: OmniKey CardMan 4040 pccard smartcard reader
 
-device		joy			# PnP aware, hints for non-PnP only
-hint.joy.0.at="isa"
-hint.joy.0.port="0x201"
 device		cmx
 
 #
@@ -2799,7 +2749,7 @@ options 	U3G_DEBUG
 
 # options for ukbd:
 options 	UKBD_DFLT_KEYMAP	# specify the built-in keymap
-makeoptions	UKBD_DFLT_KEYMAP=jp
+makeoptions	UKBD_DFLT_KEYMAP=jp.106
 
 # options for uplcom:
 options 	UPLCOM_INTR_INTERVAL=100	# interrupt pipe interval
@@ -2972,11 +2922,6 @@ options 	MSGTQL=41	# Max number of messages in system
 
 options 	NBUF=512	# Number of buffer headers
 
-options 	SCSI_NCR_DEBUG
-options 	SCSI_NCR_MAX_SYNC=10000
-options 	SCSI_NCR_MAX_WIDE=1
-options 	SCSI_NCR_MYADDR=7
-
 options 	SC_DEBUG_LEVEL=5	# Syscons debug level
 options 	SC_RENDER_DEBUG	# syscons rendering debugging
 
@@ -3068,3 +3013,5 @@ device		n25q		#
 device		spigen		# Generic access to SPI devices from userland.
 # Enable legacy /dev/spigenN name aliases for /dev/spigenX.Y devices.
 options 	SPIGEN_LEGACY_CDEVNAME # legacy device names for spigen
+
+device		xz		# xz_embedded LZMA de-compression library

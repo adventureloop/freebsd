@@ -4760,32 +4760,8 @@ key_random()
 {
 	u_long value;
 
-	key_randomfill(&value, sizeof(value));
+	arc4random_buf(&value, sizeof(value));
 	return value;
-}
-
-void
-key_randomfill(void *p, size_t l)
-{
-	size_t n;
-	u_long v;
-	static int warn = 1;
-
-	n = 0;
-	n = (size_t)read_random(p, (u_int)l);
-	/* last resort */
-	while (n < l) {
-		v = random();
-		bcopy(&v, (u_int8_t *)p + n,
-		    l - n < sizeof(v) ? l - n : sizeof(v));
-		n += sizeof(v);
-
-		if (warn) {
-			printf("WARNING: pseudo-random number generator "
-			    "used for IPsec processing\n");
-			warn = 0;
-		}
-	}
 }
 
 /*
@@ -6685,7 +6661,9 @@ key_acquire(const struct secasindex *saidx, struct secpolicy *sp)
 
 	/* XXX proxy address (optional) */
 
-	/* set sadb_x_policy */
+	/*
+	 * Set sadb_x_policy. This is KAME extension to RFC2367.
+	 */
 	if (sp != NULL) {
 		m = key_setsadbxpolicy(sp->policy, sp->spidx.dir, sp->id,
 		    sp->priority);
@@ -6696,6 +6674,18 @@ key_acquire(const struct secasindex *saidx, struct secpolicy *sp)
 		m_cat(result, m);
 	}
 
+	/*
+	 * Set sadb_x_sa2 extension if saidx->reqid is not zero.
+	 * This is FreeBSD extension to RFC2367.
+	 */
+	if (saidx->reqid != 0) {
+		m = key_setsadbxsa2(saidx->mode, 0, saidx->reqid);
+		if (m == NULL) {
+			error = ENOBUFS;
+			goto fail;
+		}
+		m_cat(result, m);
+	}
 	/* XXX identity (optional) */
 #if 0
 	if (idexttype && fqdn) {

@@ -283,7 +283,7 @@ bt_fill(vmem_t *vm, int flags)
 			VMEM_UNLOCK(vm);
 			bt = uma_zalloc(vmem_bt_zone, flags);
 			VMEM_LOCK(vm);
-			if (bt == NULL && (flags & M_NOWAIT) != 0)
+			if (bt == NULL)
 				break;
 		}
 		LIST_INSERT_HEAD(&vm->vm_freetags, bt, bt_freelist);
@@ -504,6 +504,9 @@ bt_insfree(vmem_t *vm, bt_t *bt)
 
 /*
  * Import from the arena into the quantum cache in UMA.
+ *
+ * We use VMEM_ADDR_QCACHE_MIN instead of 0: uma_zalloc() returns 0 to indicate
+ * failure, so UMA can't be used to cache a resource with value 0.
  */
 static int
 qc_import(void *arg, void **store, int cnt, int domain, int flags)
@@ -512,19 +515,16 @@ qc_import(void *arg, void **store, int cnt, int domain, int flags)
 	vmem_addr_t addr;
 	int i;
 
+	KASSERT((flags & M_WAITOK) == 0, ("blocking allocation"));
+
 	qc = arg;
-	if ((flags & VMEM_FITMASK) == 0)
-		flags |= M_BESTFIT;
 	for (i = 0; i < cnt; i++) {
 		if (vmem_xalloc(qc->qc_vmem, qc->qc_size, 0, 0, 0,
-		    VMEM_ADDR_MIN, VMEM_ADDR_MAX, flags, &addr) != 0)
+		    VMEM_ADDR_QCACHE_MIN, VMEM_ADDR_MAX, flags, &addr) != 0)
 			break;
 		store[i] = (void *)addr;
-		/* Only guarantee one allocation. */
-		flags &= ~M_WAITOK;
-		flags |= M_NOWAIT;
 	}
-	return i;
+	return (i);
 }
 
 /*
@@ -689,9 +689,11 @@ vmem_startup(void)
 	/*
 	 * Reserve enough tags to allocate new tags.  We allow multiple
 	 * CPUs to attempt to allocate new tags concurrently to limit
-	 * false restarts in UMA.
+	 * false restarts in UMA.  vmem_bt_alloc() allocates from a per-domain
+	 * arena, which may involve importing a range from the kernel arena,
+	 * so we need to keep at least 2 * BT_MAXALLOC tags reserved.
 	 */
-	uma_zone_reserve(vmem_bt_zone, BT_MAXALLOC * (mp_ncpus + 1) / 2);
+	uma_zone_reserve(vmem_bt_zone, 2 * BT_MAXALLOC * mp_ncpus);
 	uma_zone_set_allocf(vmem_bt_zone, vmem_bt_alloc);
 #endif
 }
@@ -1123,15 +1125,20 @@ vmem_alloc(vmem_t *vm, vmem_size_t size, int flags, vmem_addr_t *addrp)
 		WITNESS_WARN(WARN_GIANTOK | WARN_SLEEPOK, NULL, "vmem_alloc");
 
 	if (size <= vm->vm_qcache_max) {
+		/*
+		 * Resource 0 cannot be cached, so avoid a blocking allocation
+		 * in qc_import() and give the vmem_xalloc() call below a chance
+		 * to return 0.
+		 */
 		qc = &vm->vm_qcache[(size - 1) >> vm->vm_quantum_shift];
-		*addrp = (vmem_addr_t)uma_zalloc(qc->qc_cache, flags);
-		if (*addrp == 0)
-			return (ENOMEM);
-		return (0);
+		*addrp = (vmem_addr_t)uma_zalloc(qc->qc_cache,
+		    (flags & ~M_WAITOK) | M_NOWAIT);
+		if (__predict_true(*addrp != 0))
+			return (0);
 	}
 
-	return vmem_xalloc(vm, size, 0, 0, 0, VMEM_ADDR_MIN, VMEM_ADDR_MAX,
-	    flags, addrp);
+	return (vmem_xalloc(vm, size, 0, 0, 0, VMEM_ADDR_MIN, VMEM_ADDR_MAX,
+	    flags, addrp));
 }
 
 int
@@ -1263,7 +1270,8 @@ vmem_free(vmem_t *vm, vmem_addr_t addr, vmem_size_t size)
 	qcache_t *qc;
 	MPASS(size > 0);
 
-	if (size <= vm->vm_qcache_max) {
+	if (size <= vm->vm_qcache_max &&
+	    __predict_true(addr >= VMEM_ADDR_QCACHE_MIN)) {
 		qc = &vm->vm_qcache[(size - 1) >> vm->vm_quantum_shift];
 		uma_zfree(qc->qc_cache, (void *)addr);
 	} else

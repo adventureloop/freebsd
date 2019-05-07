@@ -8,7 +8,7 @@
  *
  * 1. Copyright Notice
  *
- * Some or all of this work - Copyright (c) 1999 - 2018, Intel Corp.
+ * Some or all of this work - Copyright (c) 1999 - 2019, Intel Corp.
  * All rights reserved.
  *
  * 2. License
@@ -480,7 +480,7 @@ ACPI_STATUS (*ACPI_INTERNAL_METHOD) (
  */
 typedef struct acpi_name_info
 {
-    char                        Name[ACPI_NAME_SIZE];
+    char                        Name[ACPI_NAMESEG_SIZE];
     UINT16                      ArgumentList;
     UINT8                       ExpectedBtypes;
 
@@ -568,7 +568,7 @@ typedef ACPI_STATUS (*ACPI_OBJECT_CONVERTER) (
 
 typedef struct acpi_simple_repair_info
 {
-    char                        Name[ACPI_NAME_SIZE];
+    char                        Name[ACPI_NAMESEG_SIZE];
     UINT32                      UnexpectedBtypes;
     UINT32                      PackageIndex;
     ACPI_OBJECT_CONVERTER       ObjectConverter;
@@ -597,9 +597,9 @@ typedef struct acpi_simple_repair_info
 
 typedef struct acpi_reg_walk_info
 {
-    ACPI_ADR_SPACE_TYPE     SpaceId;
     UINT32                  Function;
     UINT32                  RegRunCount;
+    ACPI_ADR_SPACE_TYPE     SpaceId;
 
 } ACPI_REG_WALK_INFO;
 
@@ -1105,7 +1105,7 @@ typedef struct acpi_comment_addr_node
 
 /*
  * File node - used for "Include" operator file stack and
- * depdendency tree for the -ca option
+ * dependency tree for the -ca option
  */
 typedef struct acpi_file_node
 {
