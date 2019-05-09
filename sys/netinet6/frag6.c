@@ -89,7 +89,7 @@ static void frag6_deq(struct ip6asfrag *, uint32_t bucket __unused);
 static void frag6_insque_head(struct ip6q *, struct ip6q *,
     uint32_t bucket);
 static void frag6_remque(struct ip6q *, uint32_t bucket);
-static void frag6_freef(struct ip6q *, uint32_t bucket, uint32_t errorcode);
+static void frag6_freef(struct ip6q *, uint32_t bucket);
 
 struct ip6qbucket {
 	struct ip6q	ip6q;
@@ -349,10 +349,14 @@ frag6_input(struct mbuf **mp, int *offp, int proto)
 		/* remove any fragments that have arrived */
 		if (q6 != head) {
 			IP6STAT_ADD(ip6s_fragdropped, q6->ip6q_nfrag);
-			printf("clearing fragment chain\n");
-			frag6_freef(q6, hash, ICMP6_PARAM_PROB);
+			frag6_freef(q6, hash);
 		}
-		goto dropfrag;
+		icmp6_error(m, ICMP6_PARAM_PROB,
+			ICMP6_PARAMPROB_FRAGHDRCHAIN, offset);
+		in6_ifstat_inc(dstifp, ifs6_reass_fail);
+		IP6STAT_INC(ip6s_fragdropped);
+		IP6Q_UNLOCK(hash);
+		return (IPPROTO_DONE);
 	}
 
 	if (q6 == head) {
@@ -618,7 +622,7 @@ insert:
 		if (af6->ip6af_off != next) {
 			if (q6->ip6q_nfrag > V_ip6_maxfragsperpacket) {
 				IP6STAT_ADD(ip6s_fragdropped, q6->ip6q_nfrag);
-				frag6_freef(q6, hash, ICMP6_TIME_EXCEEDED);
+				frag6_freef(q6, hash);
 			}
 			IP6Q_UNLOCK(hash);
 			return IPPROTO_DONE;
@@ -628,7 +632,7 @@ insert:
 	if (af6->ip6af_up->ip6af_mff) {
 		if (q6->ip6q_nfrag > V_ip6_maxfragsperpacket) {
 			IP6STAT_ADD(ip6s_fragdropped, q6->ip6q_nfrag);
-			frag6_freef(q6, hash, ICMP6_TIME_EXCEEDED);
+			frag6_freef(q6, hash);
 		}
 		IP6Q_UNLOCK(hash);
 		return IPPROTO_DONE;
@@ -755,7 +759,7 @@ insert:
  * associated datagrams.
  */
 static void
-frag6_freef(struct ip6q *q6, uint32_t bucket, uint32_t errorcode)
+frag6_freef(struct ip6q *q6, uint32_t bucket)
 {
 	struct ip6asfrag *af6, *down6;
 
@@ -782,19 +786,8 @@ frag6_freef(struct ip6q *q6, uint32_t bucket, uint32_t errorcode)
 			ip6->ip6_src = q6->ip6q_src;
 			ip6->ip6_dst = q6->ip6q_dst;
 
-			switch (errorcode) {
-			case ICMP6_TIME_EXCEEDED:
-				icmp6_error(m, ICMP6_TIME_EXCEEDED,
-					    ICMP6_TIME_EXCEED_REASSEMBLY, 0);
-				break;
-			case ICMP6_PARAM_PROB:
-				printf("sending icmp \n");
-				icmp6_error(m, ICMP6_PARAM_PROB,
-					ICMP6_PARAMPROB_FRAGHDRCHAIN, 0);
-				break;
-			default:
-				break;
-			}
+			icmp6_error(m, ICMP6_TIME_EXCEEDED,
+				    ICMP6_TIME_EXCEED_REASSEMBLY, 0);
 		} else
 			m_freem(m);
 		free(af6, M_FTABLE);
@@ -899,8 +892,7 @@ frag6_slowtimo(void)
 					IP6STAT_ADD(ip6s_fragtimeout,
 						q6->ip6q_prev->ip6q_nfrag);
 					/* XXX in6_ifstat_inc(ifp, ifs6_reass_fail) */
-					frag6_freef(q6->ip6q_prev, i, 
-						ICMP6_TIME_EXCEEDED);
+					frag6_freef(q6->ip6q_prev, i);
 				}
 			}
 			/*
@@ -919,7 +911,7 @@ frag6_slowtimo(void)
 				IP6STAT_ADD(ip6s_fragoverflow,
 					q6->ip6q_prev->ip6q_nfrag);
 				/* XXX in6_ifstat_inc(ifp, ifs6_reass_fail) */
-				frag6_freef(head->ip6q_prev, i, ICMP6_TIME_EXCEEDED);
+				frag6_freef(head->ip6q_prev, i);
 			}
 			IP6Q_UNLOCK(i);
 		}
@@ -937,7 +929,7 @@ frag6_slowtimo(void)
 				IP6STAT_ADD(ip6s_fragoverflow,
 					q6->ip6q_prev->ip6q_nfrag);
 				/* XXX in6_ifstat_inc(ifp, ifs6_reass_fail) */
-				frag6_freef(head->ip6q_prev, i, ICMP6_TIME_EXCEEDED);
+				frag6_freef(head->ip6q_prev, i);
 			}
 			IP6Q_UNLOCK(i);
 			i = (i + 1) % IP6REASS_NHASH;
@@ -967,7 +959,7 @@ frag6_drain(void)
 			while (head->ip6q_next != head) {
 				IP6STAT_INC(ip6s_fragdropped);
 				/* XXX in6_ifstat_inc(ifp, ifs6_reass_fail) */
-				frag6_freef(head->ip6q_next, i, ICMP6_TIME_EXCEEDED);
+				frag6_freef(head->ip6q_next, i);
 			}
 			IP6Q_UNLOCK(i);
 		}
