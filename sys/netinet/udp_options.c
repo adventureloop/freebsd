@@ -231,6 +231,7 @@ int
 udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 {
 	uint32_t mask, optlen = 0;
+	uint16_t mss = 0;
 	uint8_t cksum;
 	u_char *optp = cp;
 
@@ -254,7 +255,8 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 			*optp++ = UDPOPT_MSS;
 			*optp++ = UDPOLEN_MSS;
 
-			bcopy((u_char *)&uo->uo_mss, optp, sizeof(uo->uo_mss));
+			mss = htons(uo->uo_mss);
+			bcopy((u_char *)&mss, optp, sizeof(uint16_t));
 			optp += sizeof(uo->uo_mss);
 			optlen += UDPOLEN_MSS;
 
