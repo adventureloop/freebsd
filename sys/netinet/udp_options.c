@@ -306,8 +306,7 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 		}
 	}
 
-	/* pad out to four probably */
-
+	/* TODO pad out to four probably */
 	cp[optlen++] = UDPOPT_EOL;	//buffer overflow
 	cksum = udp_optcksum(cp, optlen);
 
