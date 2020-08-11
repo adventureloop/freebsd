@@ -311,7 +311,6 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 	cksum = udp_optcksum(cp, optlen);
 
 	cp[1] = cksum;
-	optlen++;
 #if 0
 	printf("Adding %d bytes of UDP Options\n", optlen);	
 	int toggle = 0;
