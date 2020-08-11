@@ -235,9 +235,10 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 	uint8_t cksum;
 	u_char *optp = cp;
 
-	/* fill out opt block with NOP and an EOL*/
+	/* fill out options block with NOP, terminate with an EOL and initialize the ocs to zero*/
 	memset(optp, UDPOPT_NOP, len);
 	optp[len-1] = UDPOPT_EOL;
+	cp[1] = 0;
 
 	/* always add the OCS at the start */
 	optp[0] = UDPOPT_OCS;
