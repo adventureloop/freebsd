@@ -407,6 +407,7 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 	struct mbuf *m;
 	struct m_tag *fwd_tag;
 	int cscov_partial, iphlen;
+	int haveoptions = 0;
 	struct udpopt uo;
 	uo.uo_flags = 0;
 
@@ -483,6 +484,7 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 				optlen = ip_len - len;
 				u_char *optp = mtod(m, u_char *) + iphlen + len;
 				udp_dooptions(&uo, optp, optlen);
+				haveoptions = 1;
 				UDPSTAT_INC(udps_optspace);
 			}
 			m_adj(m, len - ip_len);
@@ -755,7 +757,7 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 		}
 	}
 
-	if(V_udp_doopts) {
+	if(V_udp_doopts && haveoptions) {
 		struct udpcb *up;
 			up = intoudpcb(inp);
 			if (up != NULL && (up->u_flags & UF_OPT)) {
