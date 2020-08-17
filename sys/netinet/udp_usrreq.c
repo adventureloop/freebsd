@@ -778,11 +778,11 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 					udp_send_echo(inp->inp_socket, (struct sockaddr *)&udp_in[0], up->u_sopt_td);
 
 				/* if we have an echo response tell the state machine */
+				/* TODO only tell the state machine about replies to dplpmtud requests */
 				if (uo.uo_flags & UOF_ECHORES) {
 					plpmtud_event(up, UDPOPT_PROBE_EVENT_ACK);
 
 					if (up->u_plpmtud.send_probe) {
-						up->u_plpmtud.send_probe = 0;
 						udp_send_echo(inp->inp_socket,
 							(struct sockaddr *)&udp_in[0], up->u_sopt_td);
 					}
@@ -887,6 +887,7 @@ udp_common_ctlinput(int cmd, struct sockaddr *sa, void *vip,
 					if (cmd == PRC_MSGSIZE) {
 						up->u_plpmtud.ptb_size = icp->icmp_nextmtu;
 						plpmtud_event(up, UDPOPT_PROBE_EVENT_PTB);
+						// TODO We need to send in response to a machine update
 					}
 				}
 
@@ -1638,6 +1639,15 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		uo.uo_mss = udp_sendspace;
 		uo.uo_tsecr = up->u_ts_recent;
 
+		/* TODO: this should also check if this is a 0 len data gram (a
+		 * probe) and only then claim it as a probe */
+		if (up->u_plpmtud.send_probe) {
+			up->u_plpmtud.send_probe = 0;
+			uo.uo_plpmtud_token = 0xAABBCCDD;
+			uo.uo_flags |= UOF_ECHOREQ;
+		}
+
+		/* If we have a recent request echo it back */
 		if (up->u_echo_recent != 0) {
 			uo.uo_echores = up->u_echo_recent;
 			uo.uo_flags |= UOF_ECHORES;
