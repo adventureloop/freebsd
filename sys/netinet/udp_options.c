@@ -371,11 +371,20 @@ plpmtud_event(struct udpcb *up, int event)
 	switch (up->u_plpmtud.state)
 	{
 	case UDPOPT_PROBE_STATE_NONE:
-		if (event == UDPOPT_PROBE_EVENT_ACK) {
+		switch (event) {
+		case UDPOPT_PROBE_EVENT_ACK:
 			up->u_plpmtud.state = UDPOPT_PROBE_STATE_BASE;
 			printf("udp_probe: UDPOPT_PROBE_STATE_NONE -> UDPOPT_PROBE_STATE_BASE\n");
-		} else
+			break;
+		case UDPOPT_PROBE_EVENT_NONE:
+			up->u_plpmtud.probed_size = 64;	// TODO should be connectivity mtu
+			up->u_plpmtud.send_probe = 1;
+			printf("udp_probe: UDPOPT_PROBE_STATE_NONE -> UDPOPT_PROBE_STATE_NONE (machine startup)\n");
+			break;
+		default:
 			printf("udp_probe: event %d invalid in state UDPOPT_PROBE_NONE\n", event);
+			break;
+		}
 		break;
 	case UDPOPT_PROBE_STATE_BASE:
 		switch (event) {
