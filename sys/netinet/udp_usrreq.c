@@ -759,11 +759,11 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 
 	if(V_udp_doopts && haveoptions) {
 		struct udpcb *up;
-			up = intoudpcb(inp);
-			if (up != NULL && (up->u_flags & UF_OPT)) {
-				if (uo.uo_flags & UOF_TIME) {
-					up->u_ts_recent = uo.uo_tsecr;
-					up->u_rtt = uo.uo_rtt;
+		up = intoudpcb(inp);
+		if (up != NULL && (up->u_flags & UF_OPT)) {
+			if (uo.uo_flags & UOF_TIME) {
+				up->u_ts_recent = uo.uo_tsecr;
+				up->u_rtt = uo.uo_rtt;
 			}
 			if (uo.uo_flags & UOF_ECHOREQ)
 				up->u_echo_recent = uo.uo_echoreq;
