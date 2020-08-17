@@ -286,7 +286,10 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 			*optp++ = UDPOPT_ECHOREQ;
 			*optp++ = UDPOLEN_ECHOREQ;
 
-			uo->uo_echoreq = udp_ts_getticks(); //~~does~~ should this be in network byte order?
+			if (uo->uo_plpmtud_token != 0)
+				uo->uo_echoreq = uo->uo_plpmtud_token;
+			else
+				uo->uo_echoreq = udp_ts_getticks();
 
 			bcopy((u_char *)&uo->uo_echoreq, optp, sizeof(uo->uo_echoreq));
 			optp += sizeof(uo->uo_echoreq);
