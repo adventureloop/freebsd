@@ -64,15 +64,16 @@ struct udpopt {
 #define UOF_ECHOREQ 0x0040      /* echo request */
 #define UOF_ECHORES 0x0080      /* echo response */
 #define UOF_MAXOPT  0x0100
-    uint8_t    uo_ocs;     /* option checksum */
-    uint16_t   uo_acs;     /* alternate checksum */
-    uint32_t   uo_lite;    /* udp lite checksum */
-    uint16_t   uo_mss;     /* maximum segment size */
-    uint32_t   uo_tsval;   /* new timestamp */
-    uint32_t   uo_tsecr;   /* reflected timestamp */
-    uint32_t   uo_rtt;     /* rtt estimate */
-    uint32_t   uo_echoreq; /* echo request value */
-    uint32_t   uo_echores; /* echo response */
+    uint8_t 	uo_ocs;     /* option checksum */
+    uint16_t	uo_acs;     /* alternate checksum */
+    uint32_t	uo_lite;    /* udp lite checksum */
+    uint16_t	uo_mss;     /* maximum segment size */
+    uint32_t	uo_tsval;   /* new timestamp */
+    uint32_t	uo_tsecr;   /* reflected timestamp */
+    uint32_t	uo_rtt;     /* rtt estimate */
+    uint32_t	uo_echoreq; /* echo request value */
+    uint32_t	uo_echores; /* echo response */
+    uint32_t	uo_plpmtud_token;	/* dplpmtud token */
 };
 
 uint8_t udp_optcksum(uint8_t *, int );
