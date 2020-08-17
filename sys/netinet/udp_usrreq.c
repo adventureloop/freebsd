@@ -1158,6 +1158,7 @@ udp_ctloutput(struct socket *so, struct sockopt *sopt)
 			if (optval) {
 				up->u_flags |= opt;
 				up->u_plpmtud.state = UDPOPT_PROBE_STATE_NONE;
+				plpmtud_event(up, UDPOPT_PROBE_EVENT_NONE);
 			} else {
 				up->u_flags &= ~opt;
 			}
