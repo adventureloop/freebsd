@@ -194,7 +194,8 @@ uint16_t
 udp_optlen(struct udpopt *uo) 
 {
 	uint32_t mask;
-	uint16_t fixedlen = 0;
+	/* we always add OCS and EOL TODO FIX!*/
+	uint16_t fixedlen = 3;
 
 	/* figure out the fixed option space */
 	for (mask = 1; mask < UOF_MAXOPT; mask <<= 1) {
@@ -241,6 +242,7 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 	cp[1] = 0;
 
 	/* always add the OCS at the start */
+	/* TODO this doesn't match with how optlen is calculated */
 	optp[0] = UDPOPT_OCS;
 	optlen += UDPOLEN_OCS;
 	optp += UDPOLEN_OCS;
