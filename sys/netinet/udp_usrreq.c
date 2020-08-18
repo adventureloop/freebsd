@@ -1631,7 +1631,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	up = intoudpcb(inp);
 	if (V_udp_doopts && (up->u_flags & UF_OPT)) {
 		u_char *opt = NULL;
-		size_t optsize;
+		size_t optsize = 0;
 		struct udpopt uo;
 
 		memset(&uo, 0, sizeof(struct udpopt));
@@ -1640,9 +1640,10 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		uo.uo_mss = udp_sendspace;
 		uo.uo_tsecr = up->u_ts_recent;
 
-		/* TODO: this should also check if this is a 0 len data gram (a
-		 * probe) and only then claim it as a probe */
-		if (up->u_plpmtud.send_probe) {
+		/* We are only sending a UDP options probe, when we are sending
+		 * a 0 length UDP datagram with a UDP Options probe block */
+		if (len == 0 && up->u_plpmtud.send_probe) {
+			optsize = up->u_plpmtud.probed_size;
 			up->u_plpmtud.send_probe = 0;
 			uo.uo_plpmtud_token = 0xAABBCCDD;
 			uo.uo_flags |= UOF_ECHOREQ;
@@ -1654,16 +1655,16 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 			uo.uo_flags |= UOF_ECHORES;
 		}
 
-		optsize = udp_optlen(&uo);
+		optsize = MAX(udp_optlen(&uo), optsize);
 		opt = malloc(optsize, M_TEMP, M_NOWAIT);
 
 		if (opt == NULL) {
 			panic("unable to alloc probe memory\n");
 		}
 
-		int optlen = udp_addoptions(&uo, opt, optsize);
-		m_append(m, optlen, opt);
-		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + optlen); 
+		udp_addoptions(&uo, opt, optsize);
+		m_append(m, optsize, opt);
+		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + optsize);
 	} else 
 		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len); 
 
