@@ -767,6 +767,10 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 			}
 			if (uo.uo_flags & UOF_ECHOREQ)
 				up->u_echo_recent = uo.uo_echoreq;
+			if (uo.uo_flags & UOF_MSS) {
+				up->u_plpmtud.max_pmtu = uo.uo_mss;
+				// TODO plpmtud_event(up, UDPOPT_EVENT_NEWMSS);
+			}
 
 			/*
 			* If we are doing echos and have been asked to provide a response
