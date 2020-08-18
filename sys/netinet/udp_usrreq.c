@@ -1634,6 +1634,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		size_t optsize;
 		struct udpopt uo;
 
+		memset(&uo, 0, sizeof(struct udpopt));
 		uo.uo_flags = UOF_MSS | UOF_TIME;
 
 		uo.uo_mss = udp_sendspace;
