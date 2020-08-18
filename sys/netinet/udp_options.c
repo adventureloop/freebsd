@@ -348,7 +348,7 @@ udp_optcksum(u_char *cp, int len)
  * udp_ts_getticks() in ms, should be 1ms < x < 1000ms according to RFC 1323.
  * We always use 1ms granularity independent of hz.
  */
-static __inline uint32_t
+__inline uint32_t
 udp_ts_getticks(void)
 {
 	struct timeval tv;
