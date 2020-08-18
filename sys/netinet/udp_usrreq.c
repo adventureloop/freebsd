@@ -1647,6 +1647,14 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 			up->u_plpmtud.send_probe = 0;
 			uo.uo_plpmtud_token = 0xAABBCCDD;
 			uo.uo_flags |= UOF_ECHOREQ;
+		} else if (up->u_plpmtud.send_connectivity) {
+			/*
+			 * connectivity check is only going to be bundled with
+			 * a send by an application.
+			 */
+			up->u_plpmtud.send_connectivity = 0;
+			uo.uo_plpmtud_token = 0xAABBCCDD;
+			uo.uo_flags |= UOF_ECHOREQ;
 		}
 
 		/* If we have a recent request echo it back */
