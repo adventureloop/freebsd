@@ -438,7 +438,8 @@ plpmtud_event(struct udpcb *up, int event)
 			printf("udp_probe: UDPOPT_PROBE_STATE_SEARCH -> UDPOPT_PROBE_STATE_BASE\n");
 			break;
 		case UDPOPT_PROBE_EVENT_ACK:
-			if (up->u_plpmtud.probed_size == up->u_plpmtud.max_pmtu)	{
+			printf("max_pmtu is %d\n", up->u_plpmtud.max_pmtu);
+			if (up->u_plpmtud.probed_size >= up->u_plpmtud.max_pmtu)	{
 				up->u_plpmtud.effective_pmtu = up->u_plpmtud.probed_size;
 				up->u_plpmtud.state = UDPOPT_PROBE_STATE_DONE;
 				printf("udp_probe: UDPOPT_PROBE_STATE_SEARCH -> UDPOPT_PROBE_STATE_DONE\n");
