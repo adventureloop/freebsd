@@ -67,7 +67,7 @@ typedef void(*udp_tun_icmp_t)(int, struct sockaddr *, void *, void *);
 #define UDPOPT_PROBE_STATE_ERROR	4
 #define UDPOPT_PROBE_STATE_DONE		5
 
-#define UDPOPT_PROBE_EVENT_NONE		0
+#define UDPOPT_PROBE_EVENT_START	0
 #define UDPOPT_PROBE_EVENT_ACK		1
 #define UDPOPT_PROBE_EVENT_TIMEOUT	2
 #define UDPOPT_PROBE_EVENT_PTB		5

@@ -376,8 +376,15 @@ plpmtud_event(struct udpcb *up, int event)
 			up->u_plpmtud.state = UDPOPT_PROBE_STATE_BASE;
 			printf("udp_probe: UDPOPT_PROBE_STATE_NONE -> UDPOPT_PROBE_STATE_BASE\n");
 			break;
-		case UDPOPT_PROBE_EVENT_NONE:
+		case UDPOPT_PROBE_EVENT_START:
+			/* Initialise timers */
+			up->u_plpmtud.probe_timer = 0;
+			up->u_plpmtud.pmtu_raise_timer = 0;
+			up->u_plpmtud.reachability_timer = 0;
+
+			/* Register that connectivity needs to be verified */
 			up->u_plpmtud.send_connectivity = 1;
+
 			printf("udp_probe: UDPOPT_PROBE_STATE_NONE -> UDPOPT_PROBE_STATE_NONE (machine startup)\n");
 			break;
 		default:
