@@ -230,6 +230,7 @@ int		udp_set_kernel_tunneling(struct socket *so, udp_tun_func_t f,
 
 int plpmtud_next_probe(struct udpopt_probe *);
 void plpmtud_event(struct udpcb *, int );
+void plpmtud_checktimers(struct udpcb *);
 
 #endif /* _KERNEL */
 

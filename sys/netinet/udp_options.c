@@ -512,3 +512,25 @@ plpmtud_next_probe(struct udpopt_probe *plpmtud)
 	printf("plpmtud_next_probe\n");
 	return BASE_MTU;
 }
+
+void
+plpmtud_checktimers(struct udpcb *up)
+{
+	uint32_t now = udp_ts_getticks();
+#define PLPMTUD_TIMEOUT 10000		// 10 seconds
+
+	if (up->u_plpmtud.probe_timer != 0 &&
+		(up->u_plpmtud.probe_timer + PLPMTUD_TIMEOUT) < now) {
+		up->u_plpmtud.probe_timer = 0;
+		plpmtud_event(up, UDPOPT_PROBE_EVENT_TIMEOUT);
+	}
+
+	if (up->u_plpmtud.pmtu_raise_timer != 0 && up->u_plpmtud.pmtu_raise_timer + PLPMTUD_TIMEOUT < now) {
+		up->u_plpmtud.pmtu_raise_timer = 0;
+		plpmtud_event(up, UDPOPT_PROBE_EVENT_TIMEOUT);
+	}
+	if (up->u_plpmtud.reachability_timer != 0 && up->u_plpmtud.reachability_timer + PLPMTUD_TIMEOUT < now) {
+		up->u_plpmtud.reachability_timer = 0;
+		plpmtud_event(up, UDPOPT_PROBE_EVENT_TIMEOUT);
+	}
+}

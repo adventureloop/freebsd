@@ -1646,6 +1646,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		if (len == 0 && up->u_plpmtud.send_probe) {
 			optsize = up->u_plpmtud.probed_size;
 			up->u_plpmtud.send_probe = 0;
+			up->u_plpmtud.probe_timer = udp_ts_getticks();
 			uo.uo_plpmtud_token = 0xAABBCCDD;
 			uo.uo_flags |= UOF_ECHOREQ;
 		} else if (up->u_plpmtud.send_connectivity) {
@@ -1654,6 +1655,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 			 * a send by an application.
 			 */
 			up->u_plpmtud.send_connectivity = 0;
+			up->u_plpmtud.reachability_timer = udp_ts_getticks();
 			uo.uo_plpmtud_token = 0xAABBCCDD;
 			uo.uo_flags |= UOF_ECHOREQ;
 		}
@@ -1674,6 +1676,13 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		udp_addoptions(&uo, opt, optsize);
 		m_append(m, optsize, opt);
 		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len + optsize);
+
+		/*
+		 * Now that we have constructed our udp options packet check
+		 * the dplpmtud timers
+		 */
+		plpmtud_checktimers(up);
+
 	} else 
 		((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len); 
 
