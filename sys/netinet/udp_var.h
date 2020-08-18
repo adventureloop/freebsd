@@ -82,6 +82,7 @@ struct udpopt_probe
 {
 	uint8_t state;
 	uint8_t send_probe;
+	uint8_t send_connectivity;
 
 	uint16_t max_pmtu;      /* max mtu signalled for peer */
 
