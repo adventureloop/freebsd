@@ -374,6 +374,7 @@ plpmtud_event(struct udpcb *up, int event)
 		switch (event) {
 		case UDPOPT_PROBE_EVENT_ACK:
 			up->u_plpmtud.state = UDPOPT_PROBE_STATE_BASE;
+			up->u_plpmtud.confirmation_timer = 0;
 			printf("plpmtud_event state changed: UDPOPT_PROBE_STATE_NONE -> UDPOPT_PROBE_STATE_BASE [label=UDPOPT_PROBE_EVENT_ACK]\n");
 			break;
 		case UDPOPT_PROBE_EVENT_START:
@@ -410,6 +411,7 @@ plpmtud_event(struct udpcb *up, int event)
 			}
 			break;
 		case UDPOPT_PROBE_EVENT_ACK:
+			up->u_plpmtud.probe_timer = 0;
 			if (up->u_plpmtud.probed_size == up->u_plpmtud.max_pmtu) {
 				up->u_plpmtud.effective_pmtu = up->u_plpmtud.probed_size;
 				up->u_plpmtud.state = UDPOPT_PROBE_STATE_DONE;
@@ -439,6 +441,7 @@ plpmtud_event(struct udpcb *up, int event)
 			printf("plpmtud_event state changed: UDPOPT_PROBE_STATE_SEARCH -> UDPOPT_PROBE_STATE_BASE [label=UDPOPT_PROBE_EVENT_PTB]\n");
 			break;
 		case UDPOPT_PROBE_EVENT_ACK:
+			up->u_plpmtud.probe_timer = 0;
 			if (up->u_plpmtud.probed_size >= up->u_plpmtud.max_pmtu)	{
 				up->u_plpmtud.effective_pmtu = up->u_plpmtud.probed_size;
 				up->u_plpmtud.state = UDPOPT_PROBE_STATE_DONE;
