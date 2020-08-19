@@ -1659,7 +1659,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 			 * a send by an application.
 			 */
 			up->u_plpmtud.send_connectivity = 0;
-			up->u_plpmtud.reachability_timer = udp_ts_getticks();
+			up->u_plpmtud.confirmation_timer = udp_ts_getticks();
 			uo.uo_plpmtud_token = 0xAABBCCDD;
 			uo.uo_flags |= UOF_ECHOREQ;
 		}

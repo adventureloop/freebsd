@@ -88,7 +88,7 @@ struct udpopt_probe
 
 	uint32_t probe_timer;
 	uint32_t pmtu_raise_timer;
-	uint32_t reachability_timer;
+	uint32_t confirmation_timer;
 
 	uint16_t effective_pmtu;    /* current successful probe size */
 	uint16_t probed_size;   /* current probe size */
