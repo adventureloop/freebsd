@@ -527,20 +527,17 @@ plpmtud_checktimers(struct udpcb *up)
 
 	if (up->u_plpmtud.probe_timer != 0 &&
 		(up->u_plpmtud.probe_timer + PLPMTUD_PROBE_TIME) < now) {
-printf("%s:%d: probe_timer fired\n", __func__, __LINE__);
 		up->u_plpmtud.probe_timer = 0;
 		plpmtud_event(up, UDPOPT_PROBE_EVENT_TIMEOUT);
 	}
 
 	if (up->u_plpmtud.pmtu_raise_timer != 0 &&
 		up->u_plpmtud.pmtu_raise_timer + PLPMTUD_RAISE_TIME < now) {
-printf("%s:%d: pmtu_raise_timer fired\n", __func__, __LINE__);
 		up->u_plpmtud.pmtu_raise_timer = 0;
 		plpmtud_event(up, UDPOPT_PROBE_EVENT_RAISE);
 	}
 	if (up->u_plpmtud.confirmation_timer != 0 &&
 		up->u_plpmtud.confirmation_timer + PLPMTUD_CONFIRMATION_TIME < now) {
-printf("%s:%d: confirmation_timer fired\n", __func__, __LINE__);
 		up->u_plpmtud.confirmation_timer = 0;
 		plpmtud_event(up, UDPOPT_PROBE_EVENT_TIMEOUT);
 	}

@@ -1975,7 +1975,6 @@ udp_send_echo(struct socket *so, struct sockaddr *addr, struct thread *td)
     struct inpcb *inp;
     struct mbuf *m;
 
-    printf("udp_send_echo called\n");
     MGET(m, M_NOWAIT, MT_DATA);
     //m_get2(4096, m, M_NOWAIT, MT_DATA);
     if (m == NULL) {
