@@ -380,7 +380,7 @@ plpmtud_event(struct udpcb *up, int event)
 			/* Initialise timers */
 			up->u_plpmtud.probe_timer = 0;
 			up->u_plpmtud.pmtu_raise_timer = 0;
-			up->u_plpmtud.reachability_timer = 0;
+			up->u_plpmtud.confirmation_timer = 0;
 
 			/* Register that connectivity needs to be verified */
 			up->u_plpmtud.send_connectivity = 1;
@@ -530,8 +530,10 @@ plpmtud_checktimers(struct udpcb *up)
 		up->u_plpmtud.pmtu_raise_timer = 0;
 		plpmtud_event(up, UDPOPT_PROBE_EVENT_TIMEOUT);
 	}
-	if (up->u_plpmtud.reachability_timer != 0 && up->u_plpmtud.reachability_timer + PLPMTUD_TIMEOUT < now) {
-		up->u_plpmtud.reachability_timer = 0;
+	if (up->u_plpmtud.confirmation_timer != 0 && 
+		up->u_plpmtud.confirmation_timer + PLPMTUD_CONFIRMATION_TIME < now) {
+printf("%s:%d: reachabilit_timer fired\n", __func__, __LINE__);
+		up->u_plpmtud.confirmation_timer = 0;
 		plpmtud_event(up, UDPOPT_PROBE_EVENT_TIMEOUT);
 	}
 }
