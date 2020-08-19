@@ -505,7 +505,10 @@ plpmtud_event(struct udpcb *up, int event)
 			up->u_plpmtud.probed_size = up->u_plpmtud.effective_pmtu;
 			up->u_plpmtud.probe_count = 0;
 			up->u_plpmtud.send_probe = 1;
-
+		case UDPOPT_PROBE_STATE_DONE:
+			up->u_plpmtud.pmtu_raise_timer = udp_ts_getticks();
+			break;
+		default:
 			break;
 		}
 	}
