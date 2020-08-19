@@ -511,8 +511,7 @@ plpmtud_event(struct udpcb *up, int event)
 int
 plpmtud_next_probe(struct udpopt_probe *plpmtud)
 {
-	printf("plpmtud_next_probe\n");
-	return BASE_MTU;
+	return plpmtud->probed_size + 64;
 }
 
 void
