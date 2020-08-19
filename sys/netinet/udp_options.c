@@ -518,8 +518,8 @@ void
 plpmtud_checktimers(struct udpcb *up)
 {
 	uint32_t now = udp_ts_getticks();
-#define PLPMTUD_PROBE_TIME	15000			/* 15 seconds */
-#define PLPMTUD_RAISE_TIME	(300*1000)		/* 5 minutes */
+#define PLPMTUD_PROBE_TIME	(15*1000)	/* 15 seconds */
+#define PLPMTUD_RAISE_TIME	(300*1000)	/* 5 minutes */
 #define PLPMTUD_CONFIRMATION_TIME	(15*1000)	/* 15 seconds */
 
 	if (up->u_plpmtud.probe_timer != 0 &&
@@ -537,7 +537,7 @@ printf("%s:%d: pmtu_raise_timer fired\n", __func__, __LINE__);
 	}
 	if (up->u_plpmtud.confirmation_timer != 0 &&
 		up->u_plpmtud.confirmation_timer + PLPMTUD_CONFIRMATION_TIME < now) {
-printf("%s:%d: reachabilit_timer fired\n", __func__, __LINE__);
+printf("%s:%d: confirmation_timer fired\n", __func__, __LINE__);
 		up->u_plpmtud.confirmation_timer = 0;
 		plpmtud_event(up, UDPOPT_PROBE_EVENT_TIMEOUT);
 	}
