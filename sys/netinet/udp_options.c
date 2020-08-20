@@ -236,9 +236,8 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 	uint8_t cksum;
 	u_char *optp = cp;
 
-	/* fill out options block with NOP, terminate with an EOL and initialize the ocs to zero*/
-	memset(optp, UDPOPT_NOP, len);
-	optp[len-1] = UDPOPT_EOL;
+	/* fill out options block with EOL and initialize the OCS to zero*/
+	memset(optp, UDPOPT_EOL, len);
 	cp[1] = 0;
 
 	/* always add the OCS at the start */
@@ -314,10 +313,10 @@ udp_addoptions(struct udpopt *uo, u_char *cp, int len)
 	/* TODO pad out to four probably */
 	cp[optlen++] = UDPOPT_EOL;	//buffer overflow
 	cksum = udp_optcksum(cp, optlen);
-
 	cp[1] = cksum;
 #if 0
-	printf("Adding %d bytes of UDP Options\n", optlen);	
+	printf("Adding %d bytes of UDP Options and %d bytes of padding\n",
+		optlen, len-optlen);
 	int toggle = 0;
 	for(int i = 0; i < optlen; i++) {
 		printf("%02x ", cp[i]);
