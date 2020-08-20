@@ -779,7 +779,7 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 				/* respond to the echo request */
 				/* TODO this MUST be rate limited */
 				if (uo.uo_flags & UOF_ECHOREQ)
-					udp_send_echo(inp->inp_socket, (struct sockaddr *)&udp_in[0], up->u_sopt_td);
+					udp_send_echo(inp->inp_socket, 0, (struct sockaddr *)&udp_in[0], up->u_sopt_td);
 
 				/* if we have an echo response tell the state machine */
 				/* TODO only tell the state machine about replies to dplpmtud requests */
@@ -787,7 +787,7 @@ udp_input(struct mbuf **mp, int *offp, int proto)
 					plpmtud_event(up, UDPOPT_PROBE_EVENT_ACK);
 
 					if (up->u_plpmtud.send_probe) {
-						udp_send_echo(inp->inp_socket,
+						udp_send_echo(inp->inp_socket, 0,
 							(struct sockaddr *)&udp_in[0], up->u_sopt_td);
 					}
 				}
@@ -1970,7 +1970,8 @@ udp_disconnect(struct socket *so)
 }
 
 int
-udp_send_echo(struct socket *so, struct sockaddr *addr, struct thread *td)
+udp_send_echo(struct socket *so, int flags, struct sockaddr *addr,
+	struct thread *td)
 {
     struct inpcb *inp;
     struct mbuf *m;
@@ -1988,7 +1989,7 @@ udp_send_echo(struct socket *so, struct sockaddr *addr, struct thread *td)
 
     inp = sotoinpcb(so);
     KASSERT(inp != NULL, ("udp_send: inp == NULL"));
-    return (udp_output(inp, m, addr, NULL, td));
+    return (udp_output(inp, m, addr, NULL, td, flags));
 }
 
 static int
