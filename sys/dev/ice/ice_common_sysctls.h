@@ -82,6 +82,19 @@ bool ice_enable_tx_fc_filter = true;
 bool ice_enable_tx_lldp_filter = true;
 
 /**
+ * @var ice_enable_vlan_stripping
+ * @brief boolean indicating if vlan tags should be stripped from packets
+ *
+ * Global sysctl variable indicating whether the vlan tags should be stripped
+ * from packets. If true packet byte streams will have the vlan tag removed
+ * and made available via the mbuf pkthdr. If false, stripping is disabled and
+ * packets from vlans will keep their tags.
+ *
+ * @remark each PF has a separate sysctl which can override this value.
+ */
+bool ice_enable_vlan_stripping = true;
+
+/**
  * @var ice_enable_health_events
  * @brief boolean indicating if health status events from the FW should be reported
  *
@@ -146,6 +159,10 @@ SYSCTL_BOOL(_hw_ice_debug, OID_AUTO, enable_tx_fc_filter, CTLFLAG_RDTUN,
 SYSCTL_BOOL(_hw_ice_debug, OID_AUTO, enable_tx_lldp_filter, CTLFLAG_RDTUN,
 	    &ice_enable_tx_lldp_filter, 0,
 	    "Drop Ethertype 0x88cc LLDP frames originating from non-HW sources");
+
+SYSCTL_BOOL(_hw_ice_debug, OID_AUTO, enable_vlan_stripping, CTLFLAG_RDTUN,
+	    &ice_enable_vlan_stripping, 0,
+	    "Strip VLAN Tags from packets");
 
 SYSCTL_BOOL(_hw_ice_debug, OID_AUTO, tx_balance_en, CTLFLAG_RWTUN,
 	    &ice_tx_balance_en, 0,

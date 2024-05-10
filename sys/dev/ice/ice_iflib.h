@@ -310,6 +310,7 @@ struct ice_softc {
 
 	/* Other tunable flags */
 	bool enable_health_events;
+	bool enable_vlan_stripping;
 
 	/* 5-layer scheduler topology enabled */
 	bool tx_balance_en;

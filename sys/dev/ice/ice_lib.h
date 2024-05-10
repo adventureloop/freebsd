@@ -116,6 +116,9 @@ extern bool ice_enable_tx_fc_filter;
 /* global sysctl indicating whether the Tx LLDP filter should be enabled */
 extern bool ice_enable_tx_lldp_filter;
 
+/* global sysctl indicating whether vlan tags should be stripped from packets */
+extern bool ice_enable_vlan_stripping;
+
 /* global sysctl indicating whether FW health status events should be enabled */
 extern bool ice_enable_health_events;
 

@@ -63,7 +63,7 @@ MALLOC_DEFINE(M_ICE, "ice", "Intel(R) 100Gb Network Driver lib allocations");
  * Helper function prototypes
  */
 static int ice_get_next_vsi(struct ice_vsi **all_vsi, int size);
-static void ice_set_default_vsi_ctx(struct ice_vsi_ctx *ctx);
+static void ice_set_default_vsi_ctx(struct ice_vsi_ctx *ctx, bool);
 static void ice_set_rss_vsi_ctx(struct ice_vsi_ctx *ctx, enum ice_vsi_type type);
 static int ice_setup_vsi_qmap(struct ice_vsi *vsi, struct ice_vsi_ctx *ctx);
 static int ice_setup_tx_ctx(struct ice_tx_queue *txq,
@@ -504,7 +504,7 @@ ice_free_vsi_qmaps(struct ice_vsi *vsi)
  * Initialize and prepare a default VSI context for configuring a new VSI.
  */
 static void
-ice_set_default_vsi_ctx(struct ice_vsi_ctx *ctx)
+ice_set_default_vsi_ctx(struct ice_vsi_ctx *ctx, bool strip)
 {
 	u32 table = 0;
 
@@ -515,14 +515,21 @@ ice_set_default_vsi_ctx(struct ice_vsi_ctx *ctx)
 	ctx->info.sw_flags = ICE_AQ_VSI_SW_FLAG_SRC_PRUNE;
 	/* Traffic from VSI can be sent to LAN */
 	ctx->info.sw_flags2 = ICE_AQ_VSI_SW_FLAG_LAN_ENA;
-	/* Allow all packets untagged/tagged */
-	ctx->info.inner_vlan_flags = ((ICE_AQ_VSI_INNER_VLAN_TX_MODE_ALL &
-				       ICE_AQ_VSI_INNER_VLAN_TX_MODE_M) >>
-				       ICE_AQ_VSI_INNER_VLAN_TX_MODE_S);
-	/* Show VLAN/UP from packets in Rx descriptors */
-	ctx->info.inner_vlan_flags |= ((ICE_AQ_VSI_INNER_VLAN_EMODE_STR_BOTH &
-					ICE_AQ_VSI_INNER_VLAN_EMODE_M) >>
-					ICE_AQ_VSI_INNER_VLAN_EMODE_S);
+
+	if (strip) {
+		/* Allow all packets untagged/tagged */
+		ctx->info.inner_vlan_flags = ((ICE_AQ_VSI_INNER_VLAN_TX_MODE_ALL &
+					       ICE_AQ_VSI_INNER_VLAN_TX_MODE_M) >>
+					       ICE_AQ_VSI_INNER_VLAN_TX_MODE_S);
+		/* Show VLAN/UP from packets in Rx descriptors */
+		ctx->info.inner_vlan_flags |= ((ICE_AQ_VSI_INNER_VLAN_EMODE_STR_BOTH &
+						ICE_AQ_VSI_INNER_VLAN_EMODE_M) >>
+						ICE_AQ_VSI_INNER_VLAN_EMODE_S);
+	} else {
+		ctx->info.inner_vlan_flags = ICE_AQ_VSI_INNER_VLAN_TX_MODE_ALL |
+					     ICE_AQ_VSI_INNER_VLAN_EMODE_NOTHING;
+	}
+
 	/* Have 1:1 UP mapping for both ingress/egress tables */
 	table |= ICE_UP_TABLE_TRANSLATE(0, 0);
 	table |= ICE_UP_TABLE_TRANSLATE(1, 1);
@@ -742,7 +749,7 @@ ice_initialize_vsi(struct ice_vsi *vsi)
 		return (ENODEV);
 	}
 
-	ice_set_default_vsi_ctx(&ctx);
+	ice_set_default_vsi_ctx(&ctx, vsi->sc->enable_vlan_stripping);
 	ice_set_rss_vsi_ctx(&ctx, vsi->type);
 
 	/* XXX: VSIs of other types may need different port info? */
@@ -6225,6 +6232,14 @@ ice_add_debug_tunables(struct ice_softc *sc)
 			ICE_CTLFLAG_DEBUG | CTLFLAG_RDTUN,
 			&sc->enable_tx_lldp_filter, 0,
 			"Drop Ethertype 0x88cc LLDP frames originating from software on this PF");
+
+	/* Load the default value from the global sysctl first */
+	sc->enable_vlan_stripping = ice_enable_vlan_stripping;
+
+	SYSCTL_ADD_BOOL(ctx, debug_list, OID_AUTO, "enable_vlan_stripping",
+			ICE_CTLFLAG_DEBUG | CTLFLAG_RDTUN,
+			&sc->enable_vlan_stripping, 1,
+			"Strip VLAN tags at driver layer");
 
 	ice_add_fw_logging_tunables(sc, sc->debug_sysctls);
 }
