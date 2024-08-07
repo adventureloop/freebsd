@@ -941,26 +941,26 @@ struct pf_state_peer {
 };
 
 /* Keep synced with struct pf_udp_endpoint. */
-struct pf_udp_endpoint_cmp {
-       struct pf_addr  addr;
-       uint16_t        port;
-       sa_family_t     af;
-       uint8_t         pad[1];
+	struct pf_udp_endpoint_cmp {
+	struct pf_addr  addr;
+	uint16_t        port;
+	sa_family_t     af;
+	uint8_t         pad[1];
 };
 
 struct pf_udp_endpoint {
-       struct pf_addr  addr;
-       uint16_t        port;
-       sa_family_t     af;
-       uint8_t         pad[1];
+	struct pf_addr  addr;
+	uint16_t        port;
+	sa_family_t     af;
+	uint8_t         pad[1];
 
-       struct pf_udp_mapping *mapping;
-       LIST_ENTRY(pf_udp_endpoint) entry;
+	struct pf_udp_mapping *mapping;
+	LIST_ENTRY(pf_udp_endpoint) entry;
 };
 
 struct pf_udp_mapping {
-       struct pf_udp_endpoint endpoints[2];
-       u_int refs;
+	struct pf_udp_endpoint endpoints[2];
+	u_int refs;
 };
 
 /* Keep synced with struct pf_state_key. */
@@ -2321,7 +2321,7 @@ extern struct pf_udp_mapping	*pf_udp_mapping_create(sa_family_t af,
 				    struct pf_addr *nat_addr, uint16_t nat_port);
 extern int			 pf_udp_mapping_insert(struct pf_udp_mapping
 				    *mapping);
-extern void			 pf_udp_mapping_release(struct pf_udp_mapping 
+extern void			 pf_udp_mapping_release(struct pf_udp_mapping
 				    *mapping);
 extern struct pf_ksrc_node	*pf_find_src_node(struct pf_addr *,
 				    struct pf_krule *, sa_family_t,

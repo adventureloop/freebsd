@@ -1812,19 +1812,23 @@ pf_udp_mapping_insert(struct pf_udp_mapping *mapping)
 		PF_HASHROW_LOCK(h0);
 	}
 
-	LIST_FOREACH(endpoint, &h0->endpoints, entry)
-		if (bcmp(endpoint, &mapping->endpoints[0], sizeof(struct pf_udp_endpoint_cmp)) == 0)
+	LIST_FOREACH(endpoint, &h0->endpoints, entry) {
+		if (bcmp(endpoint, &mapping->endpoints[0],
+		    sizeof(struct pf_udp_endpoint_cmp)) == 0)
 			break;
+	}
 	if (endpoint != NULL)
 		goto cleanup;
-	LIST_FOREACH(endpoint, &h1->endpoints, entry)
-		if (bcmp(endpoint, &mapping->endpoints[1], sizeof(struct pf_udp_endpoint_cmp)) == 0)
+	LIST_FOREACH(endpoint, &h1->endpoints, entry) {
+		if (bcmp(endpoint, &mapping->endpoints[1],
+		    sizeof(struct pf_udp_endpoint_cmp)) == 0)
 			break;
-	        if (endpoint != NULL)
-                goto cleanup;
-        LIST_INSERT_HEAD(&h0->endpoints, &mapping->endpoints[0], entry);
-        LIST_INSERT_HEAD(&h1->endpoints, &mapping->endpoints[1], entry);
-        ret = 0;
+	}
+	if (endpoint != NULL)
+		goto cleanup;
+	LIST_INSERT_HEAD(&h0->endpoints, &mapping->endpoints[0], entry);
+	LIST_INSERT_HEAD(&h1->endpoints, &mapping->endpoints[1], entry);
+	ret = 0;
 
 cleanup:
         if (h0 != h1) {
@@ -1839,23 +1843,23 @@ cleanup:
 void
 pf_udp_mapping_release(struct pf_udp_mapping *mapping)
 {
-        /* refcount is synchronized on the source endpoint's row lock */
-        struct pf_udpendpointhash *h0, *h1;
+	/* refcount is synchronized on the source endpoint's row lock */
+	struct pf_udpendpointhash *h0, *h1;
 
-        h0 = &V_pf_udpendpointhash[pf_hashudpendpoint(&mapping->endpoints[0])];
-        PF_HASHROW_LOCK(h0);
-        if (refcount_release(&mapping->refs)) {
-                LIST_REMOVE(&mapping->endpoints[0], entry);
-                PF_HASHROW_UNLOCK(h0);
-                h1 = &V_pf_udpendpointhash[pf_hashudpendpoint(&mapping->endpoints[1])];
-                PF_HASHROW_LOCK(h1);
-                LIST_REMOVE(&mapping->endpoints[1], entry);
-                PF_HASHROW_UNLOCK(h1);
+	h0 = &V_pf_udpendpointhash[pf_hashudpendpoint(&mapping->endpoints[0])];
+	PF_HASHROW_LOCK(h0);
+	if (refcount_release(&mapping->refs)) {
+		LIST_REMOVE(&mapping->endpoints[0], entry);
+		PF_HASHROW_UNLOCK(h0);
+		h1 = &V_pf_udpendpointhash[pf_hashudpendpoint(&mapping->endpoints[1])];
+		PF_HASHROW_LOCK(h1);
+		LIST_REMOVE(&mapping->endpoints[1], entry);
+		PF_HASHROW_UNLOCK(h1);
 
-                uma_zfree(V_pf_udp_mapping_z, mapping);
-        } else {
-                PF_HASHROW_UNLOCK(h0);
-        }
+		uma_zfree(V_pf_udp_mapping_z, mapping);
+	} else {
+			PF_HASHROW_UNLOCK(h0);
+	}
 }
 
 
@@ -1868,11 +1872,12 @@ pf_udp_mapping_find(struct pf_udp_endpoint_cmp *key)
 	uh = &V_pf_udpendpointhash[pf_hashudpendpoint((struct pf_udp_endpoint*)key)];
 
 	PF_HASHROW_LOCK(uh);
-	LIST_FOREACH(endpoint, &uh->endpoints, entry)
+	LIST_FOREACH(endpoint, &uh->endpoints, entry) {
 		if (bcmp(endpoint, key, sizeof(struct pf_udp_endpoint_cmp)) == 0 &&
 			bcmp(endpoint, &endpoint->mapping->endpoints[0],
 			    sizeof(struct pf_udp_endpoint_cmp)) == 0)
 			break;
+	}
 	if (endpoint == NULL) {
 		PF_HASHROW_UNLOCK(uh);
 		return NULL;

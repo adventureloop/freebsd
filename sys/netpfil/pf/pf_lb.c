@@ -222,28 +222,28 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 	struct pf_addr		init_addr;
 	struct pf_srchash        *sh = NULL;
 
-        if (proto == IPPROTO_UDP) {
-                struct pf_udp_endpoint_cmp udp_source;
+	if (proto == IPPROTO_UDP) {
+		struct pf_udp_endpoint_cmp udp_source;
 
-                bzero(&udp_source, sizeof(udp_source));
-                udp_source.af = af;
-                PF_ACPY(&udp_source.addr, saddr, af);
-                udp_source.port = sport;
-                *udp_mapping = pf_udp_mapping_find(&udp_source);
-                if (*udp_mapping) {
-                        PF_ACPY(naddr, &(*udp_mapping)->endpoints[1].addr, af);
-                        *nport = (*udp_mapping)->endpoints[1].port;
-                        /* as per pf_map_addr(): */
-                        if (*sn == NULL && r->rpool.opts & PF_POOL_STICKYADDR &&
-                            (r->rpool.opts & PF_POOL_TYPEMASK) != PF_POOL_NONE)
-                                *sn = pf_find_src_node(saddr, r, af, &sh, 0);
-                        return (0);
+		bzero(&udp_source, sizeof(udp_source));
+		udp_source.af = af;
+		PF_ACPY(&udp_source.addr, saddr, af);
+		udp_source.port = sport;
+		*udp_mapping = pf_udp_mapping_find(&udp_source);
+		if (*udp_mapping) {
+			PF_ACPY(naddr, &(*udp_mapping)->endpoints[1].addr, af);
+			*nport = (*udp_mapping)->endpoints[1].port;
+			/* as per pf_map_addr(): */
+			if (*sn == NULL && r->rpool.opts & PF_POOL_STICKYADDR &&
+			    (r->rpool.opts & PF_POOL_TYPEMASK) != PF_POOL_NONE)
+				*sn = pf_find_src_node(saddr, r, af, &sh, 0);
+			return (0);
                 } else {
-                        *udp_mapping = pf_udp_mapping_create(af, saddr, sport, &init_addr, 0);
-                        if (*udp_mapping == NULL)
-                                return (1);
-                }
-        }
+			*udp_mapping = pf_udp_mapping_create(af, saddr, sport, &init_addr, 0);
+			if (*udp_mapping == NULL)
+				return (1);
+		}
+	}
 
 	bzero(&init_addr, sizeof(init_addr));
 	if (pf_map_addr(af, r, saddr, naddr, NULL, &init_addr, sn))
@@ -305,9 +305,9 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 			if (!pf_find_state_all_exists(&key, PF_IN)) {
 				if (proto == IPPROTO_UDP) {
 					(*udp_mapping)->endpoints[1].port = htons(low);
-                                        if (pf_udp_mapping_insert(*udp_mapping) == 0) {
-                                                *nport = htons(low);
-                                                return (0);
+					if (pf_udp_mapping_insert(*udp_mapping) == 0) {
+						*nport = htons(low);
+						return (0);
 					}
 				} else {
 					*nport = htons(low);
