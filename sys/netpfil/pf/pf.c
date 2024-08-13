@@ -488,6 +488,7 @@ BOUND_IFACE(struct pf_kstate *st, struct pfi_kkif *k)
 
 MALLOC_DEFINE(M_PFHASH, "pf_hash", "pf(4) hash header structures");
 MALLOC_DEFINE(M_PF_RULE_ITEM, "pf_krule_item", "pf(4) rule items");
+VNET_DEFINE(struct pf_udpendpointhash *, pf_udpendpointhash);
 VNET_DEFINE(struct pf_keyhash *, pf_keyhash);
 VNET_DEFINE(struct pf_idhash *, pf_idhash);
 VNET_DEFINE(struct pf_srchash *, pf_srchash);
@@ -1149,7 +1150,7 @@ pf_initialize(void)
 	    i++, kh++, ih++, uh++) {
 		mtx_init(&kh->lock, "pf_keyhash", NULL, MTX_DEF | MTX_DUPOK);
 		mtx_init(&ih->lock, "pf_idhash", NULL, MTX_DEF);
-		mtx_init(&ih->lock, "pf_udpendpointhash", NULL,
+		mtx_init(&uh->lock, "pf_udpendpointhash", NULL,
 		    MTX_DEF | MTX_DUPOK);
 	}
 

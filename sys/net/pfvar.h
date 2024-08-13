@@ -941,7 +941,7 @@ struct pf_state_peer {
 };
 
 /* Keep synced with struct pf_udp_endpoint. */
-	struct pf_udp_endpoint_cmp {
+struct pf_udp_endpoint_cmp {
 	struct pf_addr  addr;
 	uint16_t        port;
 	sa_family_t     af;
