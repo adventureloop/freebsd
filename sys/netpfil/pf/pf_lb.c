@@ -229,7 +229,7 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 	 * from the mapping. In this case we have to look up the src_node as
 	 * pf_map_addr would.
 	 */
-	if (proto == IPPROTO_UDP) {
+	if (proto == IPPROTO_UDP && (r->rpool.opts & PF_POOL_ENDPI)) {
 		struct pf_udp_endpoint_cmp udp_source;
 
 		bzero(&udp_source, sizeof(udp_source));

@@ -156,7 +156,7 @@ endpoint_independent_body()
 	# Enable pf!
 	jexec nat pfctl -e
 	pft_set_rules nat \
-		"nat on ${epair_nat}a inet from ! (${epair_nat}a) to any -> (${epair_nat}a)"
+		"nat on ${epair_nat}a inet from ! (${epair_nat}a) to any -> (${epair_nat}a) endpoint-independent"
 
 	jexec server1 nc -u -l 1234 -v 2> server1.out &
 	server1pid="$!"
