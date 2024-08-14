@@ -1773,7 +1773,7 @@ pf_find_state_all_exists(const struct pf_state_key_cmp *key, u_int dir)
 	return (false);
 }
 
-struct pf_udp_mapping*
+struct pf_udp_mapping *
 pf_udp_mapping_create(sa_family_t af, struct pf_addr *src_addr, uint16_t src_port,
     struct pf_addr *nat_addr, uint16_t nat_port)
 {

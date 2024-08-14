@@ -220,8 +220,15 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 {
 	struct pf_state_key_cmp	key;
 	struct pf_addr		init_addr;
-	struct pf_srchash        *sh = NULL;
+	struct pf_srchash	*sh = NULL;
 
+	bzero(&init_addr, sizeof(init_addr));	/* TODO: I think this is the correct place */
+
+	/*
+	 * If we are UDP and have an existing mapping we can get source port
+	 * from the mapping. In this case we have to look up the src_node as
+	 * pf_map_addr would.
+	 */
 	if (proto == IPPROTO_UDP) {
 		struct pf_udp_endpoint_cmp udp_source;
 
@@ -233,10 +240,11 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 		if (*udp_mapping) {
 			PF_ACPY(naddr, &(*udp_mapping)->endpoints[1].addr, af);
 			*nport = (*udp_mapping)->endpoints[1].port;
-			/* as per pf_map_addr(): */
+			/* Try to find a src_node as per pf_map_addr(). */
 			if (*sn == NULL && r->rpool.opts & PF_POOL_STICKYADDR &&
 			    (r->rpool.opts & PF_POOL_TYPEMASK) != PF_POOL_NONE)
 				*sn = pf_find_src_node(saddr, r, af, &sh, 0);
+				/* TODO: does it matter if pf_find_src_node fails? */
 			return (0);
                 } else {
 			*udp_mapping = pf_udp_mapping_create(af, saddr, sport, &init_addr, 0);
@@ -245,7 +253,7 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 		}
 	}
 
-	bzero(&init_addr, sizeof(init_addr));
+	/* TODO: figure out if this should come before the UDP block above */
 	if (pf_map_addr(af, r, saddr, naddr, NULL, &init_addr, sn))
 		goto failed;
 
