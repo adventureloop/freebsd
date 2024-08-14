@@ -311,7 +311,8 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 		} else if (low == high) {
 			key.port[1] = htons(low);
 			if (!pf_find_state_all_exists(&key, PF_IN)) {
-				if (proto == IPPROTO_UDP) {
+				if (proto == IPPROTO_UDP &&
+				    (r->rpool.opts & PF_POOL_ENDPI)) {
 					(*udp_mapping)->endpoints[1].port = htons(low);
 					if (pf_udp_mapping_insert(*udp_mapping) == 0) {
 						*nport = htons(low);
@@ -335,7 +336,8 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 			cut = arc4random() % (1 + high - low) + low;
 			/* low <= cut <= high */
 			for (tmp = cut; tmp <= high && tmp <= 0xffff; ++tmp) {
-				if (proto == IPPROTO_UDP) {
+				if (proto == IPPROTO_UDP &&
+				    (r->rpool.opts & PF_POOL_ENDPI)) {
 					(*udp_mapping)->endpoints[1].port = htons(tmp);
 					if (pf_udp_mapping_insert(*udp_mapping) == 0) {
 						*nport = htons(tmp);
@@ -351,7 +353,8 @@ pf_get_sport(sa_family_t af, u_int8_t proto, struct pf_krule *r,
 			}
 			tmp = cut;
 			for (tmp -= 1; tmp >= low && tmp <= 0xffff; --tmp) {
-				if (proto == IPPROTO_UDP) {
+				if (proto == IPPROTO_UDP &&
+				    (r->rpool.opts & PF_POOL_ENDPI)) {
 					(*udp_mapping)->endpoints[1].port = htons(tmp);
 					if (pf_udp_mapping_insert(*udp_mapping) == 0) {
 						*nport = htons(tmp);
