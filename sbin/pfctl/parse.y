@@ -6305,7 +6305,7 @@ lookup(char *s)
 		{ "dnqueue",		DNQUEUE},
 		{ "drop",		DROP},
 		{ "dup-to",		DUPTO},
-		{ "endpoint-indenpendent", ENDPI},
+		{ "endpoint-independent", ENDPI},
 		{ "ether",		ETHER},
 		{ "fail-policy",	FAILPOLICY},
 		{ "fairq",		FAIRQ},
