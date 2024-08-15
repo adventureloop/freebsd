@@ -175,17 +175,17 @@ endpoint_independent_body()
 	ipport_server2=$(cat server2.out | grep Connection)
 
 	if [ ! -z "$ipport_server1" ]; then
-		atf_fail server1 did not receive connection from client
+		atf_fail "server1 did not receive connection from client (default)"
 	fi
 
 	if [ ! -z "$ipport_server2" ]; then
-		atf_fail server2 did not receive connection from client
+		atf_fail "server2 did not receive connection from client (default)"
 	fi
 
 	if [ "$ipport_server1" = "$ipport_server2" ]; then
 		echo "server1: $ipport_server1"
 		echo "server2: $ipport_server2"
-		atf_fail Received same IP:port on server1 and server2
+		atf_fail "Received same IP:port on server1 and server2 (default)"
 	fi
 	kill $server1pid
 	kill $server2pid
@@ -209,17 +209,17 @@ endpoint_independent_body()
 	ipport_server2=$(cat server2.out | grep Connection)
 
 	if [ -z "$ipport_server1" ]; then
-		atf_fail server1 did not receive connection from client
+		atf_fail "server1 did not receive connection from client (endpoint-independent)"
 	fi
 
 	if [ -z "$ipport_server2" ]; then
-		atf_fail server2 did not receive connection from client
+		atf_fail "server2 did not receive connection from client (endpoint-independent)"
 	fi
 
 	if [ ! "$ipport_server1" = "$ipport_server2" ]; then
 		echo "server1: $ipport_server1"
 		echo "server2: $ipport_server2"
-		atf_fail Received different IP:port on server1 than server2
+		atf_fail "Received different IP:port on server1 than server2 (endpoint-independent)"
 	fi
 	kill $server1pid
 	kill $server2pid
