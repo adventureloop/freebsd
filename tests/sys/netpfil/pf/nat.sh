@@ -174,11 +174,11 @@ endpoint_independent_body()
 	ipport_server1=$(cat server1.out | grep Connection)
 	ipport_server2=$(cat server2.out | grep Connection)
 
-	if [ ! -z "$ipport_server1" ]; then
+	if [ -z "$ipport_server1" ]; then
 		atf_fail "server1 did not receive connection from client (default)"
 	fi
 
-	if [ ! -z "$ipport_server2" ]; then
+	if [ -z "$ipport_server2" ]; then
 		atf_fail "server2 did not receive connection from client (default)"
 	fi
 
