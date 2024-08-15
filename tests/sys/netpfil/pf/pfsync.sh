@@ -126,7 +126,7 @@ defer_head()
 {
 	atf_set descr 'Defer mode pfsync test'
 	atf_set require.user root
-	atf_set require.progs scapy
+	atf_set require.progs scapy python3
 }
 
 defer_body()
@@ -840,7 +840,7 @@ route_to_head()
 {
 	atf_set descr 'Test route-to with default rule'
 	atf_set require.user root
-	atf_set require.progs scapy
+	atf_set require.progs scapy python3
 }
 
 route_to_body()

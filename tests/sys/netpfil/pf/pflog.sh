@@ -33,7 +33,7 @@ malformed_head()
 {
 	atf_set descr 'Test that we do not log malformed packets as passing'
 	atf_set require.user root
-	atf_set require.progs scapy
+	atf_set require.progs scapy python3
 }
 
 malformed_body()

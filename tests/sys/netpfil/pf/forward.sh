@@ -34,8 +34,7 @@ v4_head()
 	atf_set descr 'Basic forwarding test'
 	atf_set require.user root
 
-	# We need scapy to be installed for out test scripts to work
-	atf_set require.progs scapy
+	atf_set require.progs scapy python3
 }
 
 v4_body()
@@ -94,7 +93,7 @@ v6_head()
 {
 	atf_set descr 'Basic IPv6 forwarding test'
 	atf_set require.user root
-	atf_set require.progs scapy
+	atf_set require.progs scapy python3
 }
 
 v6_body()
