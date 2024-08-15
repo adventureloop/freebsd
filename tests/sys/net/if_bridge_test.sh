@@ -271,7 +271,7 @@ span_head()
 {
 	atf_set descr 'Bridge span test'
 	atf_set require.user root
-	atf_set require.progs scapy
+	atf_set require.progs scapy python3
 }
 
 span_body()
@@ -420,7 +420,7 @@ stp_validation_head()
 {
 	atf_set descr 'Check STP validation'
 	atf_set require.user root
-	atf_set require.progs scapy
+	atf_set require.progs scapy python3
 }
 
 stp_validation_body()

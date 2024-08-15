@@ -32,7 +32,7 @@ mldraw01_head() {
 
 	atf_set descr 'Test for correct Ethernet Destination MAC address'
 	atf_set require.user root
-	atf_set require.progs scapy
+	atf_set require.progs scapy python3
 }
 
 mldraw01_body() {
