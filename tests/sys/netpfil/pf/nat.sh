@@ -112,6 +112,11 @@ nested_anchor_body()
 
 }
 
+nested_anchor_cleanup()
+{
+	pft_cleanup
+}
+
 atf_test_case "endpoint_independent" "cleanup"
 endpoint_independent_head()
 {
@@ -232,9 +237,96 @@ endpoint_independent_cleanup()
 	rm -f server2.out
 }
 
-nested_anchor_cleanup()
+atf_test_case "stress" "cleanup"
+stress_head()
+{
+	atf_set descr 'Configure a NAT between two jails and a surpluss of addressed'
+	atf_set require.user root
+}
+
+stress_body()
+{
+	pft_init
+
+	epair_client=$(vnet_mkepair)
+	epair_nat=$(vnet_mkepair)
+	epair_server=$(vnet_mkepair)
+	bridge=$(vnet_mkbridge)
+
+	vnet_mkjail nat ${epair_client}b ${epair_nat}a
+	vnet_mkjail client ${epair_client}a
+	vnet_mkjail server ${epair_server}a
+
+	ifconfig ${epair_server}b up
+	ifconfig ${epair_nat}b up
+	ifconfig ${bridge} \
+		addm ${epair_server}b \
+		addm ${epair_nat}b \
+		up
+
+	jexec nat ifconfig ${epair_client}b inet 192.0.2.1/24 up
+
+
+	jexec nat ifconfig ${epair_nat}a 10.42.42.42/8 up
+	jexec nat sysctl net.inet.ip.forwarding=1
+
+	# stick all address onto the client
+	jexec client ifconfig ${epair_client}a 192.0.2.2/24 up
+	for $addr in $(seq 3 254)
+	do
+		jexec nat ifconfig ${epair_client}a alias 192.0.2.${addr}/24
+	done
+	jexec client route add default 192.0.2.1
+
+	jexec server ifconfig ${epair_server}a inet 10.32.32.1/8 up
+	for $addr in $(seq 2 254)
+	do
+		jexec server ifconfig ${epair_server}a alias 10.32.32.${addr}/8
+	done
+
+	# Enable pf!
+	jexec nat pfctl -e
+
+	# validate endpoint independent nat rule behaviour
+	pft_set_rules nat \
+		"nat on ${epair_nat}a inet from ! (${epair_nat}a) to any -> (${epair_nat}a) endpoint-independent"
+
+	jexec server nc -u -l 1234 -v 2> /dev/null &
+	serverpid="$!"
+
+	jexec server tcpdump -i ${epair_server}a "udp and dst port 1234"
+
+
+#	for i in $(seq 1 254); do
+#		# send out three packets because sometimes one fails to go through
+#		echo "ping" | jexec client nc -u -s 192.0.2.${addr} -p 4242 -w 10.32.32.2 1234
+#		echo "ping" | jexec client nc -u -s 192.0.2.${addr} -p 4242 -w 10.32.32.2 1234
+#		echo "ping" | jexec client nc -u -s 192.0.2.${addr} -p 4242 -w 10.32.32.2 1234
+#	done
+
+	# send three packets from each address, from the recevier side this should look like one host
+	for i in $(seq 1 254); do
+		# send out three packets because sometimes one fails to go through
+		echo "ping" | jexec client nc -u -s 192.168.0.2 -p 4242 -w 0 10.32.32.${addr} 1234
+		echo "ping" | jexec client nc -u -s 192.168.0.2 -p 4242 -w 0 10.32.32.${addr} 1234
+		echo "ping" | jexec client nc -u -s 192.168.0.2 -p 4242 -w 0 10.32.32.${addr} 1234
+	done
+
+	srcaddrcnt=$(tcpdump -n -r server.out | awk awk '{print $3}' | sort | uniq | wc -l | awk '{print $1}')
+
+	if [ $srcaddrcnt -ne 1 ]; then
+		tcpdump -n -r server.out
+		echo srcaddrcnt $srcaddrcnt
+		atf_fail "server did not receive connection from client (endpoint-independent)"
+	fi
+
+	kill $serverpid
+}
+
+stress_cleanup()
 {
 	pft_cleanup
+	rm -f server1.out
 }
 
 atf_init_test_cases()
@@ -242,4 +334,5 @@ atf_init_test_cases()
 	atf_add_test_case "exhaust"
 	atf_add_test_case "nested_anchor"
 	atf_add_test_case "endpoint_independent"
+	atf_add_test_case "stress"
 }
