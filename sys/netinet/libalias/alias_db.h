@@ -292,6 +292,7 @@ struct alias_link {
 		struct {
 			SPLAY_ENTRY(alias_link) out;
 			LIST_ENTRY (alias_link) in;
+			SPLAY_ENTRY(alias_link) source;
 		} all;
 		struct {
 			LIST_ENTRY (alias_link) list;
@@ -374,6 +375,17 @@ cmp_in(struct group_in *a, struct group_in *b) {
 }
 SPLAY_PROTOTYPE(splay_in, group_in, in, cmp_in);
 
+static inline int
+cmp_source(struct alias_link *a, struct alias_link *b) {
+	int i = a->link_type - b->link_type;
+	if (i != 0) return (i);
+	if (a->src_addr.s_addr > b->src_addr.s_addr) return (1);
+	if (a->src_addr.s_addr < b->src_addr.s_addr) return (-1);
+	i = a->src_port - b->src_port;
+	return (i);
+}
+SPLAY_PROTOTYPE(splay_source, alias_link, all.source, cmp_source);
+
 /* Internal routines for finding, deleting and adding links
 
 Port Allocation:
@@ -390,6 +402,7 @@ Link creation and deletion:
 Link search:
     FindLinkOut()           - find link for outgoing packets
     FindLinkIn()            - find link for incoming packets
+    FindLinkBySource()      - find link by a packet's source address and port
 
 Port search:
     FindNewPortGroup()      - find an available group of ports
@@ -416,6 +429,9 @@ FindLinkOut(struct libalias *, struct in_addr, struct in_addr, u_short, u_short,
 
 static struct alias_link *
 FindLinkIn(struct libalias *, struct in_addr, struct in_addr, u_short, u_short, int, int);
+
+static struct alias_link *
+FindLinkBySource(struct libalias *, struct in_addr, u_short, int);
 
 static u_short _RandomPort(struct libalias *la);
 

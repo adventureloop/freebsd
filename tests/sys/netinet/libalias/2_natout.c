@@ -311,7 +311,12 @@ ATF_TC_BODY(8_portrange, dummy)
 	struct libalias *la = LibAliasInit(NULL);
 	struct ip  *po;
 	struct udphdr *uo;
-	uint16_t sport = 0x1234;
+	uint16_t sport1 = 0x1234;
+	uint16_t sport2 = 0x1235;
+	uint16_t sport3 = 0x1236;
+	uint16_t sport4 = 0x1237;
+	uint16_t sport5 = 0x1238;
+	uint16_t sport6 = 0x1239;
 	uint16_t dport = 0x5678;
 	uint16_t aport;
 
@@ -321,41 +326,76 @@ ATF_TC_BODY(8_portrange, dummy)
 	po = ip_packet(0, 64);
 
 	LibAliasSetAliasPortRange(la, 0, 0); /* reinit like ipfw */
-	UDP_NAT_CHECK(po, uo, prv1, sport, ext, dport, masq);
+	UDP_NAT_CHECK(po, uo, prv1, sport1, ext, dport, masq);
 	aport = ntohs(uo->uh_sport);
 	ATF_CHECK(aport >= 0x8000);
 
 	/* Different larger range */
 	LibAliasSetAliasPortRange(la, 2000, 3000);
 	dport++;
-	UDP_NAT_CHECK(po, uo, prv1, sport, ext, dport, masq);
+	UDP_NAT_CHECK(po, uo, prv1, sport2, ext, dport, masq);
 	aport = ntohs(uo->uh_sport);
 	ATF_CHECK(aport >= 2000 && aport < 3000);
 
 	/* Different small range (contains two ports) */
 	LibAliasSetAliasPortRange(la, 4000, 4001);
 	dport++;
-	UDP_NAT_CHECK(po, uo, prv1, sport, ext, dport, masq);
+	UDP_NAT_CHECK(po, uo, prv1, sport3, ext, dport, masq);
 	aport = ntohs(uo->uh_sport);
 	ATF_CHECK(aport >= 4000 && aport <= 4001);
 
-	sport++;
-	UDP_NAT_CHECK(po, uo, prv1, sport, ext, dport, masq);
+	UDP_NAT_CHECK(po, uo, prv1, sport4, ext, dport, masq);
 	aport = ntohs(uo->uh_sport);
 	ATF_CHECK(aport >= 4000 && aport <= 4001);
 
 	/* Third port not available in the range */
-	sport++;
-	UDP_NAT_FAIL(po, uo, prv1, sport, ext, dport);
+	UDP_NAT_FAIL(po, uo, prv1, sport5, ext, dport);
 
 	/* Back to normal */
 	LibAliasSetAliasPortRange(la, 0, 0);
 	dport++;
-	UDP_NAT_CHECK(po, uo, prv1, sport, ext, dport, masq);
+	UDP_NAT_CHECK(po, uo, prv1, sport6, ext, dport, masq);
 	aport = ntohs(uo->uh_sport);
 	ATF_CHECK(aport >= 0x8000);
 
 	free(po);
+	LibAliasUninit(la);
+}
+
+ATF_TC_WITHOUT_HEAD(9_udp_mapping);
+ATF_TC_BODY(9_udp_mapping, dummy)
+{
+	struct libalias *la = LibAliasInit(NULL);
+	struct ip  *po, *po2, *po3;
+	struct udphdr *uo, *uo2, *uo3;
+	uint16_t sport = 0x1234;
+	uint16_t dport = 0x5678;
+	uint16_t dport2 = 0x6789;
+	uint16_t aport, aport2, aport3;
+
+	ATF_REQUIRE(la != NULL);
+	LibAliasSetAddress(la, masq);
+	LibAliasSetMode(la, 0, ~0);
+
+	po = ip_packet(0, 64);
+	UDP_NAT_CHECK(po, uo, prv1, sport, ext, dport, masq);
+	aport = ntohs(uo->uh_sport);
+
+	/* Change of dst port shouldn't change alias port */
+	po2 = ip_packet(0, 64);
+	UDP_NAT_CHECK(po2, uo2, prv1, sport, ext, dport2, masq);
+	aport2 = ntohs(uo2->uh_sport);
+	ATF_CHECK_EQ_MSG(aport, aport2, "NAT uses address- and port-dependent mapping (%uh -> %uh)", aport, aport2);
+
+	/* Change of dst address shouldn't change alias port */
+	po3 = ip_packet(0, 64);
+	UDP_NAT_CHECK(po3, uo3, prv1, sport, pub, dport, masq);
+	aport3 = ntohs(uo3->uh_sport);
+	ATF_CHECK_EQ_MSG(aport, aport3, "NAT uses address-dependent mapping");
+
+	free(po);
+	free(po2);
+	free(po3);
 	LibAliasUninit(la);
 }
 
@@ -372,6 +412,7 @@ ATF_TP_ADD_TCS(natout)
 	ATF_TP_ADD_TC(natout, 6_cleartable);
 	ATF_TP_ADD_TC(natout, 7_stress);
 	ATF_TP_ADD_TC(natout, 8_portrange);
+	ATF_TP_ADD_TC(natout, 9_udp_mapping);
 
 	return atf_no_error();
 }

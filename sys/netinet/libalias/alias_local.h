@@ -94,10 +94,11 @@ struct libalias {
 	 * if no aliasing link already exists */
 	struct in_addr	targetAddress;
 	/* Lookup table of pointers to chains of link records.
-	 * Each link record is doubly indexed into input and
-	 * output lookup tables. */
+	 * Each link record is indexed into input,
+	 * output and "by source" lookup tables. */
 	SPLAY_HEAD(splay_out, alias_link) linkSplayOut;
 	SPLAY_HEAD(splay_in,  group_in)   linkSplayIn;
+	SPLAY_HEAD(splay_source, alias_link) linkSplayBySource;
 	LIST_HEAD (, alias_link) pptpList;
 	/* HouseKeeping */
 	TAILQ_HEAD    (, alias_link) checkExpire;

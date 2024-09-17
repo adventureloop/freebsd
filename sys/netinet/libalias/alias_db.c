@@ -93,6 +93,7 @@ DECLARE_MODULE(alias, alias_mod, SI_SUB_DRIVERS, SI_ORDER_SECOND);
 
 SPLAY_GENERATE(splay_out, alias_link, all.out, cmp_out);
 SPLAY_GENERATE(splay_in, group_in, in, cmp_in);
+SPLAY_GENERATE(splay_source, alias_link, all.source, cmp_source);
 
 static struct group_in *
 StartPointIn(struct libalias *la,
@@ -235,6 +236,16 @@ GetNewPort(struct libalias *la, struct alias_link *lnk, int alias_port_param)
 
 	max_trials = GET_NEW_PORT_MAX_ATTEMPTS;
 
+	/* For UDP, try to reuse the same alias address:port for all destinations
+	   from the same internal address:port, as per RFC 4787. */
+	if (lnk->link_type == LINK_UDP) {
+		struct alias_link *search_result = FindLinkBySource(la, lnk->src_addr, lnk->src_port, lnk->link_type);
+		if (search_result != NULL) {
+			lnk->alias_port = search_result->alias_port;
+			return (0);
+		}
+	}
+
 	/*
 	 * When the PKT_ALIAS_SAME_PORTS option is chosen,
 	 * the first try will be the actual source port. If
@@ -254,13 +265,16 @@ GetNewPort(struct libalias *la, struct alias_link *lnk, int alias_port_param)
 		if (grp == NULL)
 			break;
 
-		LIST_FOREACH(search_result, &grp->full, all.in) {
-			if (lnk->dst_addr.s_addr == search_result->dst_addr.s_addr &&
-			    lnk->dst_port == search_result->dst_port)
-			    break;     /* found match */
+		/* As per RFC 4787, UDP cannot share the same alias port among multiple internal endpoints */
+		if (lnk->link_type != LINK_UDP) {
+			LIST_FOREACH(search_result, &grp->full, all.in) {
+				if (lnk->dst_addr.s_addr == search_result->dst_addr.s_addr &&
+				    lnk->dst_port == search_result->dst_port)
+				    break;     /* found match */
+			}
+			if (search_result == NULL)
+				break;
 		}
-		if (search_result == NULL)
-			break;
 	}
 
 	if (i >= max_trials) {
@@ -496,6 +510,9 @@ DeleteLink(struct alias_link **plnk, int deletePermanent)
 		/* Adjust input table pointers */
 		LIST_REMOVE(lnk, all.in);
 
+		/* Adjust "by source" table pointer */
+		SPLAY_REMOVE(splay_source, &la->linkSplayBySource, lnk);
+
 		/* Remove intermediate node, if empty */
 		grp = StartPointIn(la, lnk->alias_addr, lnk->alias_port, lnk->link_type, 0);
 		if (grp != NULL &&
@@ -696,6 +713,9 @@ AddLink(struct libalias *la, struct in_addr src_addr, struct in_addr dst_addr,
 			LIST_INSERT_HEAD(&grp->partial, lnk, all.in);
 		else
 			LIST_INSERT_HEAD(&grp->full, lnk, all.in);
+
+		/* Set up pointers for "by source" lookup table */
+		SPLAY_INSERT(splay_source, &la->linkSplayBySource, lnk);
 	}
 		break;
 	}
@@ -978,6 +998,20 @@ FindLinkIn(struct libalias *la, struct in_addr dst_addr,
 		}
 	}
 	return (lnk);
+}
+
+static struct alias_link *
+FindLinkBySource(struct libalias *la, struct in_addr src_addr,
+    u_short src_port,
+    int link_type)
+{
+	struct alias_link needle = {
+		.src_addr = src_addr,
+		.src_port = src_port,
+		.link_type = link_type
+	};
+	LIBALIAS_LOCK_ASSERT(la);
+	return SPLAY_FIND(splay_source, &la->linkSplayBySource, &needle);
 }
 
 /* External routines for finding/adding links
@@ -2110,6 +2144,7 @@ LibAliasInit(struct libalias *la)
 
 		SPLAY_INIT(&la->linkSplayIn);
 		SPLAY_INIT(&la->linkSplayOut);
+		SPLAY_INIT(&la->linkSplayBySource);
 		LIST_INIT(&la->pptpList);
 		TAILQ_INIT(&la->checkExpire);
 #ifdef _KERNEL
