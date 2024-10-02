@@ -113,10 +113,12 @@ typedef u_int8_t pci_subclass_t;
 typedef u_int8_t pci_interface_t;
 typedef u_int8_t pci_revision_t;
 
+#if 0
 #define	PCI_CLASS_SHIFT				24
 #define	PCI_CLASS_MASK				0xff
 #define	PCI_CLASS(cr) \
 		(((cr) >> PCI_CLASS_SHIFT) & PCI_CLASS_MASK)
+
 
 #define	PCI_SUBCLASS_SHIFT			16
 #define	PCI_SUBCLASS_MASK			0xff
@@ -132,7 +134,7 @@ typedef u_int8_t pci_revision_t;
 #define	PCI_REVISION_MASK			0xff
 #define	PCI_REVISION(cr) \
 		(((cr) >> PCI_REVISION_SHIFT) & PCI_REVISION_MASK)
-
+#endif
 /* base classes */
 #define	PCI_CLASS_PREHISTORIC			0x00
 #define	PCI_CLASS_MASS_STORAGE			0x01

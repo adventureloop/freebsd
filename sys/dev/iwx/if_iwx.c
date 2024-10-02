@@ -96,17 +96,20 @@
 //#include "bpfilter.h"
 
 #include <sys/param.h>
+#include <sys/bus.h>
 #include <sys/conf.h>
 #include <sys/kernel.h>
 #include <sys/malloc.h>
 #include <sys/mbuf.h>
 #include <sys/mutex.h>
+#include <sys/module.h>
 #include <sys/proc.h>
-#include <sys/rwlock.h>
+#include <sys/obsd_rwlock.h>
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/systm.h>
 #include <sys/endian.h>
+#include <sys/time.h>
 
 #include <sys/refcnt.h>
 #include <sys/task.h>
@@ -117,6 +120,8 @@
 #include <dev/pci/pcivar.h>
 //#include <dev/pci/pcidevs.h>
 
+#define NBPFILTER -1
+
 #if NBPFILTER > 0
 #include <net/bpf.h>
 #endif
@@ -124,6 +129,7 @@
 #include <net/if_dl.h>
 #include <net/if_media.h>
 #include <net/if_types.h>
+#include <net/if_var.h>
 
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
@@ -136,9 +142,102 @@
 #ifdef __FreeBSD_version
 #include <sys/device.h>
 #include <net/ifq.h>
-#define DEVNAME(_s) gDriverName
+//#define DEVNAME(_s) gDriverName
+#define DEVNAME(_s)	device_get_nameunit(_s->sc_dev)
 #define SC_DEV_FOR_PCI sc->sc_dev
 #define mallocarray(nmemb, size, type, flags) malloc((size) * (nmemb), (type), (flags))
+
+#undef KASSERT
+
+#ifdef INVARIANTS
+#define KASSERT_FREEBSD(cond,msg) do {  \
+        if (!(cond))                            \
+		panic msg;                              \
+	} while (0)
+#define KASSERT(cond) KASSERT_FREEBSD(cond,"OpenBSD iwx")
+#else
+#define KASSERT_FREEBSD(exp,msg) do {} while (0)
+#define KASSERT(cond) KASSERT_FREEBSD(cond,"OpenBSD iwx")
+#endif
+
+#define free(addr, type, size) free(addr, type)
+#define M_WAIT M_WAITOK
+#define M_CANFAIL M_WAITOK	// TODO: I bet this is a bother
+#define M_DONTWAIT M_NOWAIT
+
+#define INFSLP 0	// No timeout
+#define tsleep_nsec(identifier, priority, wmesg, nsecs) \
+	tsleep(identifier, priority, wmesg, USEC_2_TICKS(nsecs / 1000))
+
+#if 1	// just pull these in for now
+#define timerclear(tvp)         ((tvp)->tv_sec = (tvp)->tv_usec = 0)
+#define timerisset(tvp)         ((tvp)->tv_sec || (tvp)->tv_usec)
+#define timercmp(tvp, uvp, cmp)                                 \
+        (((tvp)->tv_sec == (uvp)->tv_sec) ?                             \
+            ((tvp)->tv_usec cmp (uvp)->tv_usec) :                       \
+            ((tvp)->tv_sec cmp (uvp)->tv_sec))
+#define timeradd(tvp, uvp, vvp)                                         \
+        do {                                                            \
+                (vvp)->tv_sec = (tvp)->tv_sec + (uvp)->tv_sec;          \
+                (vvp)->tv_usec = (tvp)->tv_usec + (uvp)->tv_usec;       \
+                if ((vvp)->tv_usec >= 1000000) {                        \
+                        (vvp)->tv_sec++;                                \
+                        (vvp)->tv_usec -= 1000000;                      \
+                }                                                       \
+        } while (0)
+#define timersub(tvp, uvp, vvp)                                         \
+        do {                                                            \
+                (vvp)->tv_sec = (tvp)->tv_sec - (uvp)->tv_sec;          \
+                (vvp)->tv_usec = (tvp)->tv_usec - (uvp)->tv_usec;       \
+                if ((vvp)->tv_usec < 0) {                               \
+                        (vvp)->tv_sec--;                                \
+                        (vvp)->tv_usec += 1000000;                      \
+                }                                                       \
+        } while (0)
+
+static inline void
+USEC_TO_TIMEVAL(uint64_t us, struct timeval *tv)
+{
+        tv->tv_sec = us / 1000000;
+        tv->tv_usec = us % 1000000;
+}
+
+static inline uint64_t
+SEC_TO_NSEC(uint64_t sec)
+{
+        if (sec > UINT64_MAX / 1000000000ULL)
+                return UINT64_MAX;
+        return sec * 1000000000ULL;
+}
+
+static inline uint64_t
+MSEC_TO_NSEC(uint64_t ms)
+{
+        if (ms > UINT64_MAX / 1000000ULL)
+                return UINT64_MAX;
+        return ms * 1000000ULL;
+}
+#endif
+
+/*
+ * Somce basic Ethernet constants.
+ */
+#define ETHER_ADDR_LEN          6       /* length of an Ethernet address */
+#define ETHER_TYPE_LEN          2       /* length of the Ethernet type field */
+#define ETHER_CRC_LEN           4       /* length of the Ethernet CRC */
+#define ETHER_HDR_LEN           (ETHER_ADDR_LEN*2+ETHER_TYPE_LEN)
+#define ETHER_MIN_LEN           64      /* minimum frame len, including CRC */
+#define ETHER_MAX_LEN           1518    /* maximum frame len, including CRC */
+#define ETHER_MAX_LEN_JUMBO     9018    /* max jumbo frame len, including CRC */
+
+#define ETHER_VLAN_ENCAP_LEN    4       /* len of 802.1Q VLAN encapsulation */
+
+static const u_char etherbroadcastaddr[ETHER_ADDR_LEN] =
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+
+
+#define  splassert(a) 
+
 #else
 #define DEVNAME(_s)	((_s)->sc_dev.dv_xname)
 #endif
@@ -157,8 +256,12 @@ int iwx_debug = 1;
 #define DPRINTFN(n, x)	do { ; } while (0)
 #endif
 
-#include <dev/pci/if_iwxreg.h>
-#include <dev/pci/if_iwxvar.h>
+#include "if_iwxreg.h"
+#include "if_iwxvar.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
 
 const uint8_t iwx_nvm_channels_8000[] = {
 	/* 2.4 GHz */
@@ -493,7 +596,7 @@ int	iwx_init_hw(struct iwx_softc *);
 int	iwx_init(struct ifnet *);
 void	iwx_start(struct ifnet *);
 void	iwx_stop(struct ifnet *);
-void	iwx_watchdog(struct ifnet *);
+//void	iwx_watchdog(struct ifnet *);
 int	iwx_ioctl(struct ifnet *, u_long, caddr_t);
 const char *iwx_desc_lookup(uint32_t);
 void	iwx_nic_error(struct iwx_softc *);
@@ -518,17 +621,20 @@ void	iwx_rx_pkt(struct iwx_softc *, struct iwx_rx_data *,
 void	iwx_notif_intr(struct iwx_softc *);
 int	iwx_intr(void *);
 int	iwx_intr_msix(void *);
-int	iwx_match(struct device *, void *, void *);
 int	iwx_preinit(struct iwx_softc *);
+#ifndef __FreeBSD__
+int	iwx_match(struct device *, void *, void *);
 void	iwx_attach_hook(struct device *);
+int	iwx_activate(struct device *, int);
+#endif
 const struct iwx_device_cfg *iwx_find_device_cfg(struct iwx_softc *);
 //void	iwx_attach(struct device *, struct device *, void *);
 void	iwx_init_task(void *);
-int	iwx_activate(struct device *, int);
 void	iwx_resume(struct iwx_softc *);
 int	iwx_wakeup(struct iwx_softc *);
 
-#if NBPFILTER > 0
+#if 0
+//#if NBPFILTER > 0
 void	iwx_radiotap_attach(struct iwx_softc *);
 #endif
 
@@ -596,6 +702,9 @@ iwx_store_cscheme(struct iwx_softc *sc, uint8_t *data, size_t dlen)
 	return 0;
 }
 
+#if 1
+static
+#endif
 int
 iwx_ctxt_info_alloc_dma(struct iwx_softc *sc,
     const struct iwx_fw_onesect *sec, struct iwx_dma_info *dram)
@@ -629,6 +738,9 @@ void iwx_ctxt_info_free_paging(struct iwx_softc *sc)
 	dram->paging = NULL;
 }
 
+#if 1
+static
+#endif
 int
 iwx_get_num_sections(const struct iwx_fw_sects *fws, int start)
 {
@@ -1670,6 +1782,9 @@ iwx_write_prph(struct iwx_softc *sc, uint32_t addr, uint32_t val)
 	iwx_write_prph_unlocked(sc, addr, val);
 }
 
+#if 1
+static
+#endif
 void
 iwx_write_prph64(struct iwx_softc *sc, uint64_t addr, uint64_t val)
 {
@@ -3030,7 +3145,9 @@ iwx_unprotect_session(struct iwx_softc *sc, struct iwx_node *in)
  * NVM read access and content parsing.  We do not support
  * external NVM or writing NVM.
  */
-
+#if 1 
+static
+#endif
 uint8_t
 iwx_fw_valid_tx_ant(struct iwx_softc *sc)
 {
@@ -3045,6 +3162,9 @@ iwx_fw_valid_tx_ant(struct iwx_softc *sc)
 	return tx_ant;
 }
 
+#if 1
+static
+#endif
 uint8_t
 iwx_fw_valid_rx_ant(struct iwx_softc *sc)
 {
@@ -3220,6 +3340,7 @@ iwx_clear_reorder_buffer(struct iwx_softc *sc, struct iwx_rxba_data *rxba)
 		entry = &rxba->entries[i];
 		ml_purge(&entry->frames);
 		timerclear(&entry->reorder_time);
+
 	}
 
 	reorder_buf->removed = 1;
@@ -3341,7 +3462,7 @@ iwx_reorder_timer_expired(void *arg)
 	if (expired) {
 		/* SN is set to the last expired frame + 1 */
 		iwx_release_frames(sc, ni, rxba, buf, sn, &ml);
-		if_input(&sc->sc_ic.ic_if, &ml);
+		//if_input(&sc->sc_ic.ic_if, &ml);
 		ic->ic_stats.is_ht_rx_ba_window_gap_timeout++;
 	} else {
 		/*
@@ -3358,6 +3479,9 @@ iwx_reorder_timer_expired(void *arg)
 
 #define IWX_MAX_RX_BA_SESSIONS 16
 
+#if 1
+static
+#endif
 struct iwx_rxba_data *
 iwx_find_rxba_data(struct iwx_softc *sc, uint8_t tid)
 {
@@ -4649,7 +4773,8 @@ iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status,
 	}
 out:
 	if (ret)
-		ifp->if_ierrors++;
+		if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);
+		//ifp->if_ierrors++;
 	ieee80211_release_node(ic, ni);
 	return ret;
 }
@@ -4672,7 +4797,8 @@ iwx_rx_frame(struct iwx_softc *sc, struct mbuf *m, int chanidx,
 	ni = ieee80211_find_rxnode(ic, wh);
 	if ((rxi->rxi_flags & IEEE80211_RXI_HWDEC) &&
 	    iwx_ccmp_decap(sc, m, ni, rxi) != 0) {
-		ifp->if_ierrors++;
+		//ifp->if_ierrors++;
+		if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);
 		m_freem(m);
 		ieee80211_release_node(ic, ni);
 		return;
@@ -5173,23 +5299,26 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 		/* Allow control frames in monitor mode. */
 		if (len < sizeof(struct ieee80211_frame_cts)) {
 			ic->ic_stats.is_rx_tooshort++;
-			IC2IFP(ic)->if_ierrors++;
+		//	IC2IFP(ic)->if_ierrors++;
+			if_inc_counter(IC2IFP(ic), IFCOUNTER_IERRORS, 1);
 			m_freem(m);
 			return;
 		}
 	} else if (len < sizeof(struct ieee80211_frame)) {
 		ic->ic_stats.is_rx_tooshort++;
-		IC2IFP(ic)->if_ierrors++;
+		//IC2IFP(ic)->if_ierrors++;
+		if_inc_counter(IC2IFP(ic), IFCOUNTER_IERRORS, 1);
 		m_freem(m);
 		return;
 	}
 	if (len > maxlen - desc_size) {
-		IC2IFP(ic)->if_ierrors++;
+		//IC2IFP(ic)->if_ierrors++;
+		if_inc_counter(IC2IFP(ic), IFCOUNTER_IERRORS, 1);
 		m_freem(m);
 		return;
 	}
 
-	m->m_data = pktdata + desc_size;
+	m->m_data = (uint8_t *)pktdata + desc_size;
 	m->m_pkthdr.len = m->m_len = len;
 
 	/* Account for padding following the frame header. */
@@ -5389,7 +5518,8 @@ iwx_rx_tx_cmd(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
 	    status != IWX_TX_STATUS_DIRECT_DONE);
 
 	if (txfail)
-		ifp->if_oerrors++;
+		if_inc_counter(ifp, IFCOUNTER_OERRORS, 1);
+		//ifp->if_oerrors++;
 
 	/*
 	 * On hardware supported by iwx(4) the SSN counter corresponds
@@ -9239,12 +9369,15 @@ iwx_start(struct ifnet *ifp)
 		    (ic->ic_xflags & IEEE80211_F_TX_MGMT_ONLY))
 			break;
 
-		m = ifq_dequeue(&ifp->if_snd);
+//		m = ifq_dequeue(&ifp->if_snd);
+//		IF_DEQUEUE(ifp, m);
+		panic("We need a dequeue here and I'm not sure which");
 		if (!m)
 			break;
 		if (m->m_len < sizeof (*eh) &&
 		    (m = m_pullup(m, sizeof (*eh))) == NULL) {
-			ifp->if_oerrors++;
+//			ifp->if_oerrors++;
+			if_inc_counter(ifp, IFCOUNTER_OERRORS, 1);
 			continue;
 		}
 #if NBPFILTER > 0
@@ -9252,7 +9385,8 @@ iwx_start(struct ifnet *ifp)
 			bpf_mtap(ifp->if_bpf, m, BPF_DIRECTION_OUT);
 #endif
 		if ((m = ieee80211_encap(ifp, m, &ni)) == NULL) {
-			ifp->if_oerrors++;
+//			ifp->if_oerrors++;
+			if_inc_counter(ifp, IFCOUNTER_OERRORS, 1);
 			continue;
 		}
 
@@ -9263,12 +9397,14 @@ iwx_start(struct ifnet *ifp)
 #endif
 		if (iwx_tx(sc, m, ni) != 0) {
 			ieee80211_release_node(ic, ni);
-			ifp->if_oerrors++;
+//			ifp->if_oerrors++;
+			if_inc_counter(ifp, IFCOUNTER_OERRORS, 1);
 			continue;
 		}
-
+#if 0
 		if (ifp->if_flags & IFF_UP)
 			ifp->if_timer = 1;
+#endif
 	}
 
 	return;
@@ -9344,11 +9480,11 @@ iwx_stop(struct ifnet *ifp)
 		iwx_clear_reorder_buffer(sc, rxba);
 	}
 	memset(sc->sc_tx_timer, 0, sizeof(sc->sc_tx_timer));
-	ifp->if_timer = 0;
+//	ifp->if_timer = 0;
 
 	splx(s);
 }
-
+#if 0
 void
 iwx_watchdog(struct ifnet *ifp)
 {
@@ -9372,7 +9508,8 @@ iwx_watchdog(struct ifnet *ifp)
 				}
 				if ((sc->sc_flags & IWX_FLAG_SHUTDOWN) == 0)
 					task_add(systq, &sc->init_task);
-				ifp->if_oerrors++;
+				//ifp->if_oerrors++;
+				if_inc_counter(ifp, IFCOUNTER_OERRORS, 1);
 				return;
 			}
 			ifp->if_timer = 1;
@@ -9381,7 +9518,7 @@ iwx_watchdog(struct ifnet *ifp)
 
 	ieee80211_watchdog(ifp);
 }
-
+#endif
 int
 iwx_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data)
 {
@@ -9776,7 +9913,8 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf_list *ml)
 		if (code == IWX_REPLY_RX_MPDU_CMD && ++nmpdu == 1) {
 			/* Take mbuf m0 off the RX ring. */
 			if (iwx_rx_addbuf(sc, IWX_RBUF_SIZE, sc->rxq.cur)) {
-				ifp->if_ierrors++;
+				//ifp->if_ierrors++;
+				if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);
 				break;
 			}
 			KASSERT(data->m != m0);
@@ -9810,7 +9948,8 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf_list *ml)
 				 */
 				m = m_copym(m0, 0, M_COPYALL, M_DONTWAIT);
 				if (m == NULL) {
-					ifp->if_ierrors++;
+					//ifp->if_ierrors++;
+				if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);
 					m_freem(m0);
 					m0 = NULL;
 					break;
@@ -10186,7 +10325,7 @@ iwx_notif_intr(struct iwx_softc *sc)
 		iwx_rx_pkt(sc, data, &ml);
 		sc->rxq.cur = (sc->rxq.cur + 1) % IWX_RX_MQ_RING_COUNT;
 	}
-	if_input(&sc->sc_ic.ic_if, &ml);
+	//if_input(&sc->sc_ic.ic_if, &ml);
 
 	/*
 	 * Tell the firmware what we have processed.
@@ -10900,7 +11039,7 @@ iwx_preinit(struct iwx_softc *sc)
 	IEEE80211_ADDR_COPY(IF_LLADDR(ifp), ic->ic_myaddr);
 #else
 	/* Configure MAC address. */
-	err = if_setlladdr(ifp, ic->ic_myaddr);
+	err = if_setlladdr(ifp, ic->ic_myaddr, ETHER_ADDR_LEN);
 	if (err)
 		printf("%s: could not set MAC address (error %d)\n",
 		    DEVNAME(sc), err);
@@ -10911,6 +11050,7 @@ iwx_preinit(struct iwx_softc *sc)
 	return 0;
 }
 
+#ifndef __FreeBSD__
 void
 iwx_attach_hook(struct device *self)
 {
@@ -10920,12 +11060,17 @@ iwx_attach_hook(struct device *self)
 
 	iwx_preinit(sc);
 }
+#endif
 
 const struct iwx_device_cfg *
 iwx_find_device_cfg(struct iwx_softc *sc)
 {
 	pcireg_t sreg;
+#if 0
 	pci_product_id_t sdev_id;
+#else
+	uint8_t sdev_id;
+#endif
 	uint16_t mac_type, rf_type;
 	uint8_t mac_step, cdb, jacket, rf_id, no_160, cores;
 	int i;
@@ -11027,7 +11172,7 @@ iwx_attach(struct device *parent, struct device *self, void *aux)
 		&sc->sc_dmat);
 	pci_enable_busmaster(sc->sc_dev);
 
-	if_alloc_inplace(ifp, IFT_ETHER);
+	//if_alloc_inplace(ifp, IFT_ETHER);	//TODO: this is gonnna break stuff
 #else
 	sc->sc_pid = PCI_PRODUCT(pa->pa_id);
 	sc->sc_pct = pa->pa_pc;
@@ -11370,7 +11515,7 @@ iwx_attach(struct device *parent, struct device *self, void *aux)
 	ifp->if_flags = IFF_BROADCAST | IFF_SIMPLEX | IFF_MULTICAST;
 	ifp->if_ioctl = iwx_ioctl;
 	ifp->if_start = iwx_start;
-	ifp->if_watchdog = iwx_watchdog;
+//	ifp->if_watchdog = iwx_watchdog;
 	memcpy(ifp->if_xname, DEVNAME(sc), IFNAMSIZ);
 
 	if_attach(ifp);
@@ -11418,7 +11563,7 @@ iwx_attach(struct device *parent, struct device *self, void *aux)
 	ic->ic_ampdu_tx_start = iwx_ampdu_tx_start;
 	ic->ic_ampdu_tx_stop = NULL;
 
-#ifdef __HAIKU__
+#if defined( __HAIKU__) || defined(__FreeBSD__)
 	iwx_preinit(sc);
 #else
 	/*
@@ -11443,6 +11588,7 @@ fail1:	iwx_dma_contig_free(&sc->ctxt_info_dma);
 fail:
 	if_free_inplace(ifp);
 #endif
+fail:
 	return -1;
 }
 
@@ -11612,4 +11758,8 @@ const struct cfattach iwx_ca = {
 	sizeof(struct iwx_softc), iwx_match, iwx_attach,
 	NULL, iwx_activate
 };
+
 #endif
+
+//TODO: warnings to speed up development
+#pragma clang diagnostic pop

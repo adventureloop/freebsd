@@ -8,14 +8,14 @@
 #include <sys/systm.h>
 
 /* FreeBSD KASSERT */
-#undef KASSERT
-#define KASSERT KASSERT_FREEBSD
+//#undef KASSERT
+//#define KASSERT KASSERT_FREEBSD
 
 #include_next <sys/mbuf.h>
 
 /* back to OpenBSD KASSERT */
-#undef KASSERT
-#define KASSERT KASSERT_OPENBSD
+//#undef KASSERT
+//#define KASSERT KASSERT_OPENBSD
 
 #include <sys/mutex.h>
 

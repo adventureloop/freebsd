@@ -9,6 +9,7 @@
 #include_next <sys/systm.h>
 #include <sys/kernel.h>
 
+#if 0
 #include <int.h>
 
 
@@ -47,7 +48,7 @@ explicit_bzero(void *buf, size_t len)
 #define KERNEL_LOCK()	mtx_lock(&Giant)
 #define KERNEL_UNLOCK() mtx_unlock(&Giant)
 
-
+#endif
 /* #pragma mark - interrupts */
 
 #define	IPL_NONE		0
@@ -56,7 +57,7 @@ explicit_bzero(void *buf, size_t len)
 #define	IPL_NET			IPL_NONE
 
 #define	IPL_MPSAFE		0x100
-
+#if 0
 #define	splsoft()		splraise(IPL_SOFT)
 #define	splsoftclock()	splraise(IPL_SOFTCLOCK)
 #define	splsoftnet()	splraise(IPL_SOFTNET)
@@ -96,6 +97,6 @@ splassert(int ipl)
 	else if (!ints && ipl == IPL_NONE)
 		panic("splassert: interrupts disabled but should be enabled");
 }
-
+#endif
 
 #endif	/* _OBSD_COMPAT_SYS_SYSTM_H_ */

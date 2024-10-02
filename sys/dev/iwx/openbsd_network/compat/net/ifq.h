@@ -5,6 +5,7 @@
 #ifndef _OBSD_COMPAT_NET_IFQ_H_
 #define _OBSD_COMPAT_NET_IFQ_H_
 
+#include_next <net/ifq.h>
 
 #define ifq_purge(IFQ)				IFQ_PURGE(IFQ)
 #define ifq_set_maxlen(IFQ, LEN)	IFQ_SET_MAXLEN(IFQ, LEN)

@@ -25,13 +25,15 @@ struct bus_dmamap_obsd {
 typedef struct bus_dmamap_obsd* bus_dmamap_obsd_t;
 #define bus_dmamap_t bus_dmamap_obsd_t
 
+static MALLOC_DEFINE(M_IWXBUS, "iwxbus", "iwx bus");
 
 static int
 bus_dmamap_create_obsd(bus_dma_tag_t tag, bus_size_t maxsize,
 	int nsegments, bus_size_t maxsegsz, bus_size_t boundary,
 	int flags, bus_dmamap_t* dmamp)
 {
-	*dmamp = calloc(sizeof(struct bus_dmamap_obsd) + (sizeof(bus_dma_segment_t) * nsegments), 1);
+	*dmamp = malloc(sizeof(struct bus_dmamap_obsd) +
+	    (sizeof(bus_dma_segment_t) * nsegments), M_IWXBUS, M_ZERO);
 	if ((*dmamp) == NULL)
 		return ENOMEM;
 
@@ -53,7 +55,7 @@ bus_dmamap_destroy_obsd(bus_dma_tag_t tag, bus_dmamap_t dmam)
 {
 	bus_dmamap_destroy(dmam->_dmat, dmam->_dmamp);
 	bus_dma_tag_destroy(dmam->_dmat);
-	_kernel_free(dmam);
+	free(dmam, M_IWXBUS);
 }
 #define bus_dmamap_destroy bus_dmamap_destroy_obsd
 
@@ -104,7 +106,11 @@ static void
 bus_dmamap_sync_obsd(bus_dma_tag_t tag, bus_dmamap_t dmam,
 	bus_addr_t offset, bus_size_t length, int ops)
 {
+#if 0
 	bus_dmamap_sync_etc(dmam->_dmat, dmam->_dmamp, offset, length, ops);
+#else
+	bus_dmamap_sync(dmam->_dmat, dmam->_dmamp, ops);
+#endif
 }
 #define bus_dmamap_sync bus_dmamap_sync_obsd
 
@@ -146,8 +152,10 @@ bus_dmamem_alloc_obsd(bus_dma_tag_t tag, bus_size_t size, bus_size_t alignment, 
 static void
 bus_dmamem_free_obsd(bus_dma_tag_t tag, bus_dma_segment_t* segs, int nsegs)
 {
+#if 0	// TODO: this leaks I guess
 	for (int i = 0; i < nsegs; i++)
 		bus_dmamem_free_tagless((void*)segs[i].ds_addr, segs[i].ds_len);
+#endif
 }
 #define bus_dmamem_free bus_dmamem_free_obsd
 
@@ -170,6 +178,5 @@ bus_dmamem_unmap_obsd(bus_dma_tag_t tag, caddr_t kva, size_t size)
 	// Nothing to do.
 }
 #define bus_dmamem_unmap bus_dmamem_unmap_obsd
-
 
 #endif	/* _OBSD_COMPAT_MACHINE_BUS_H_ */

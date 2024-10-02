@@ -78,8 +78,16 @@ struct mbuf_list {
 	u_int			ml_len;
 };
 
+#include <sys/mutex.h>
+#define mtx_enter(m) mtx_lock(m)
+#define mtx_leave(m) mtx_unlock(m)
+
+#define SET(t, f)       ((t) |= (f))
+#define CLR(t, f)       ((t) &= ~(f))
+#define ISSET(t, f)     ((t) & (f))
+
 struct mbuf_queue {
-	struct mutex		mq_mtx;
+	struct mtx		mq_mtx;
 	struct mbuf_list	mq_list;
 	u_int			mq_maxlen;
 	u_int			mq_drops;
@@ -92,7 +100,7 @@ m_dup_pkt(struct mbuf *m0, unsigned int adj, int wait)
 	struct mbuf *m;
 	int len;
 
-	KASSERT(m0->m_flags & M_PKTHDR);
+	KASSERT(m0->m_flags & M_PKTHDR, "OpenBSD iwx");
 
 	len = m0->m_pkthdr.len + adj;
 	if (len > MAXMCLBYTES) /* XXX */
@@ -132,7 +140,7 @@ m_trailingspace(struct mbuf *m)
 {
 	if (M_READONLY(m))
 		return 0;
-	KASSERT(M_DATABUF(m) + M_SIZE(m) >= (m->m_data + m->m_len));
+	KASSERT(M_DATABUF(m) + M_SIZE(m) >= (m->m_data + m->m_len), "OpenBSD iwx");
 	return M_DATABUF(m) + M_SIZE(m) - (m->m_data + m->m_len);
 }
 
@@ -246,7 +254,7 @@ ml_hdatalen(struct mbuf_list *ml)
 	if (m == NULL)
 		return (0);
 
-	KASSERT(ISSET(m->m_flags, M_PKTHDR));
+	KASSERT(ISSET(m->m_flags, M_PKTHDR), "OpenBSD iwx");
 	return (m->m_pkthdr.len);
 }
 
@@ -267,7 +275,11 @@ ml_hdatalen(struct mbuf_list *ml)
 static void
 mq_init(struct mbuf_queue *mq, u_int maxlen, int ipl)
 {
+#if 0	
 	mtx_init(&mq->mq_mtx, ipl);
+#else
+	mtx_init(&mq->mq_mtx, "iwx_mb_q", NULL, MTX_DEF);	// TODO: bad
+#endif
 	ml_init(&mq->mq_list);
 	mq->mq_maxlen = maxlen;
 }

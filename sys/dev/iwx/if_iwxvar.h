@@ -657,10 +657,12 @@ struct iwx_softc {
 	bus_space_handle_t sc_sh;
 	bus_size_t sc_sz;
 	bus_dma_tag_t sc_dmat;
-	pci_product_id_t sc_pid;
 #ifndef __FreeBSD_version
+	pci_product_id_t sc_pid;
 	pci_chipset_tag_t sc_pct;
 	pcitag_t sc_pcitag;
+#else
+	uint8_t sc_pid;
 #endif
 	const void *sc_ih;
 	int sc_msix;
@@ -787,7 +789,8 @@ struct iwx_softc {
 	int sc_umac_prph_offset;
 	int sc_imr_enabled;
 
-#if NBPFILTER > 0
+//#if NBPFILTER > 0
+#if 1
 	caddr_t			sc_drvbpf;
 
 	union {

@@ -5,9 +5,13 @@
 #ifndef _OBSD_COMPAT_SYS_REFCNT_H_
 #define _OBSD_COMPAT_SYS_REFCNT_H_
 
-
+#include <sys/param.h>
 #include <sys/systm.h>
+#include <machine/atomic.h>
 
+#define int32 		int
+#define atomic_set	atomic_set_32
+#define atomic_add	atomic_add_32
 
 struct refcnt {
 	int32	r_refs;
@@ -20,27 +24,21 @@ struct refcnt {
 static void
 refcnt_init(struct refcnt* r)
 {
-	atomic_set(&r->r_refs, 1);
+	atomic_set_32(&r->r_refs, 1);
 }
 
 static void
 refcnt_take(struct refcnt* r)
 {
-	int32 refs;
-
-	refs = atomic_add(&r->r_refs, 1);
-	KASSERT(refs != 0);
-	(void)refs;
+	atomic_add_32(&r->r_refs, 1);
 }
 
 static int
 refcnt_rele(struct refcnt* r)
 {
-	int32 refs;
-
-	refs = atomic_add(&r->r_refs, -1) - 1;
-	KASSERT(refs >= 0);
-	if (refs == 0)
+	atomic_add(&r->r_refs, -1);
+	KASSERT(r->r_refs >= 0, "OpenBSD iwx");
+	if (r->r_refs == 0)
 		return 1;
 	return 0;
 }

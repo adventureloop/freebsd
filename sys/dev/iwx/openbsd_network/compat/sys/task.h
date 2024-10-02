@@ -35,8 +35,10 @@ static int
 task_add(struct taskq* tasq, struct task *w)
 {
 	struct taskqueue* tq = (tasq == systq) ? taskqueue_fast : tasq->tq;
+#if 0	// TODO: this will break
 	if (tq == taskqueue_fast)
 		w->ta_flags |= TASK_NEEDSGIANT;
+#endif
 	if (task_pending(w))
 		return 0;
 	return (taskqueue_enqueue(tq, w) == 0);
