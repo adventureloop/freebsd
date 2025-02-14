@@ -11797,7 +11797,7 @@ iwx_attach(device_t dev)
 	if (strcmp(sc->sc_fwname, IWX_TY_A_GF_A_FW) != 0 &&
 	    strcmp(sc->sc_fwname, IWX_SO_A_GF_A_FW) != 0) {
 		device_printf(dev, "not IWX_TY_A_GF_A_FW "
-		    "or IWX_SO_A_GF_A_FW firmware, worry\n");
+		    "or IWX_SO_A_GF_A_FW firmware\n\tDon't panic, but maybe worry\n");
 #if 0
 		device_printf(dev, "not IWX_TY_A_GF_A_FW "
 		    "or IWX_SO_A_GF_A_FW firmware, abort\n");
@@ -11818,6 +11818,14 @@ iwx_attach(device_t dev)
 		sc->max_tfd_queue_size = IWX_TFD_QUEUE_SIZE_MAX_GEN3;
 	} else
 		sc->max_tfd_queue_size = IWX_TFD_QUEUE_SIZE_MAX;
+
+	/* XXX-THJ complain about pre ax210 hardware so we know who has it */
+	if (sc->sc_device_family == IWX_DEVICE_FAMILY_22000) {
+		device_printf(dev,
+		    "========== WARNING PRE AX210 HARDWARE - TELL TJ ========== ");
+		return (ENXIO);
+	}
+
 
 	/* Allocate DMA memory for loading firmware. */
 	if (sc->sc_device_family >= IWX_DEVICE_FAMILY_AX210)
