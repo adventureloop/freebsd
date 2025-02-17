@@ -310,11 +310,11 @@ const int iwx_mcs2ridx[] = {
 static uint8_t	iwx_lookup_cmd_ver(struct iwx_softc *, uint8_t, uint8_t);
 static uint8_t	iwx_lookup_notif_ver(struct iwx_softc *, uint8_t, uint8_t);
 static int	iwx_store_cscheme(struct iwx_softc *, const uint8_t *, size_t);
-//int	iwx_alloc_fw_monitor_block(struct iwx_softc *, uint8_t, uint8_t);
-//int	iwx_alloc_fw_monitor(struct iwx_softc *, uint8_t);
-//int	iwx_apply_debug_destination(struct iwx_softc *);
+static int	iwx_alloc_fw_monitor_block(struct iwx_softc *, uint8_t, uint8_t);
+static int	iwx_alloc_fw_monitor(struct iwx_softc *, uint8_t);
+static int	iwx_apply_debug_destination(struct iwx_softc *);
 static void	iwx_set_ltr(struct iwx_softc *);
-//int	iwx_ctxt_info_init(struct iwx_softc *, const struct iwx_fw_sects *);
+static int	iwx_ctxt_info_init(struct iwx_softc *, const struct iwx_fw_sects *);
 static int	iwx_ctxt_info_gen3_init(struct iwx_softc *,
 	    const struct iwx_fw_sects *);
 static void	iwx_ctxt_info_free_fw_img(struct iwx_softc *);
@@ -419,7 +419,7 @@ static int	iwx_load_ucode_wait_alive(struct iwx_softc *);
 static int	iwx_send_dqa_cmd(struct iwx_softc *);
 static int	iwx_run_init_mvm_ucode(struct iwx_softc *, int);
 static int	iwx_config_ltr(struct iwx_softc *);
-//static void iwx_update_rx_desc(struct iwx_softc *, struct iwx_rx_ring *, int);
+static void iwx_update_rx_desc(struct iwx_softc *, struct iwx_rx_ring *, int, bus_dma_segment_t *);
 static int iwx_rx_addbuf(struct iwx_softc *, int, int);
 static int	iwx_rxmq_get_signal_strength(struct iwx_softc *, struct iwx_rx_mpdu_desc *);
 //void	iwx_rx_rx_phy_cmd(struct iwx_softc *, struct iwx_rx_packet *,
@@ -520,7 +520,9 @@ static int	iwx_disable_mgmt_queue(struct iwx_softc *);
 static int	iwx_rs_rval2idx(uint8_t);
 static uint16_t iwx_rs_ht_rates(struct iwx_softc *, struct ieee80211_node *,
     int);
-//uint16_t iwx_rs_vht_rates(struct iwx_softc *, struct ieee80211_node *, int);
+#if 0
+static uint16_t iwx_rs_vht_rates(struct iwx_softc *, struct ieee80211_node *, int);
+#endif
 static int	iwx_rs_init_v3(struct iwx_softc *, struct iwx_node *);
 static int	iwx_rs_init_v4(struct iwx_softc *, struct iwx_node *);
 static int	iwx_rs_init(struct iwx_softc *, struct iwx_node *);
@@ -885,148 +887,152 @@ iwx_fw_version_str(char *buf, size_t bufsize,
 		snprintf(buf, bufsize, "%u.%u.%u", major, minor, api);
 }
 
-//int
-//iwx_alloc_fw_monitor_block(struct iwx_softc *sc, uint8_t max_power,
-//    uint8_t min_power)
-//{
-//	struct iwx_dma_info *fw_mon = &sc->fw_mon;
-//	uint32_t size = 0;
-//	uint8_t power;
-//	int err;
-//
-//	if (fw_mon->size)
-//		return 0;
-//
-//	for (power = max_power; power >= min_power; power--) {
-//		size = (1 << power);
-//
-//		err = iwx_dma_contig_alloc(sc->sc_dmat, fw_mon, size, 0);
-//		if (err)
-//			continue;
-//
-//		DPRINTF(("%s: allocated 0x%08x bytes for firmware monitor.\n",
-//			 DEVNAME(sc), size));
-//		break;
-//	}
-//
-//	if (err) {
-//		fw_mon->size = 0;
-//		return err;
-//	}
-//
-//	if (power != max_power)
-//		DPRINTF(("%s: Sorry - debug buffer is only %luK while you requested %luK\n",
-//			DEVNAME(sc), (unsigned long)(1 << (power - 10)),
-//			(unsigned long)(1 << (max_power - 10))));
-//
-//	return 0;
-//}
-//
-//int
-//iwx_alloc_fw_monitor(struct iwx_softc *sc, uint8_t max_power)
-//{
-//	if (!max_power) {
-//		/* default max_power is maximum */
-//		max_power = 26;
-//	} else {
-//		max_power += 11;
-//	}
-//
-//	if (max_power > 26) {
-//		 DPRINTF(("%s: External buffer size for monitor is too big %d, "
-//		     "check the FW TLV\n", DEVNAME(sc), max_power));
-//		return 0;
-//	}
-//
-//	if (sc->fw_mon.size)
-//		return 0;
-//
-//	return iwx_alloc_fw_monitor_block(sc, max_power, 11);
-//}
-//
-//int
-//iwx_apply_debug_destination(struct iwx_softc *sc)
-//{
-//	struct iwx_fw_dbg_dest_tlv_v1 *dest_v1;
-//	int i, err;
-//	uint8_t mon_mode, size_power, base_shift, end_shift;
-//	uint32_t base_reg, end_reg;
-//
-//	dest_v1 = sc->sc_fw.dbg_dest_tlv_v1;
-//	mon_mode = dest_v1->monitor_mode;
-//	size_power = dest_v1->size_power;
-//	base_reg = le32toh(dest_v1->base_reg);
-//	end_reg = le32toh(dest_v1->end_reg);
-//	base_shift = dest_v1->base_shift;
-//	end_shift = dest_v1->end_shift;
-//
-//	DPRINTF(("%s: applying debug destination %d\n", DEVNAME(sc), mon_mode));
-//
-//	if (mon_mode == EXTERNAL_MODE) {
-//		err = iwx_alloc_fw_monitor(sc, size_power);
-//		if (err)
-//			return err;
-//	}
-//
-//	if (!iwx_nic_lock(sc))
-//		return EBUSY;
-//
-//	for (i = 0; i < sc->sc_fw.n_dest_reg; i++) {
-//		uint32_t addr, val;
-//		uint8_t op;
-//
-//		addr = le32toh(dest_v1->reg_ops[i].addr);
-//		val = le32toh(dest_v1->reg_ops[i].val);
-//		op = dest_v1->reg_ops[i].op;
-//
-//		DPRINTF(("%s: op=%u addr=%u val=%u\n", __func__, op, addr, val));
-//		switch (op) {
-//		case CSR_ASSIGN:
-//			IWX_WRITE(sc, addr, val);
-//			break;
-//		case CSR_SETBIT:
-//			IWX_SETBITS(sc, addr, (1 << val));
-//			break;
-//		case CSR_CLEARBIT:
-//			IWX_CLRBITS(sc, addr, (1 << val));
-//			break;
-//		case PRPH_ASSIGN:
-//			iwx_write_prph(sc, addr, val);
-//			break;
-//		case PRPH_SETBIT:
-//			err = iwx_set_bits_prph(sc, addr, (1 << val));
-//			if (err)
-//				return err;
-//			break;
-//		case PRPH_CLEARBIT:
-//			err = iwx_clear_bits_prph(sc, addr, (1 << val));
-//			if (err)
-//				return err;
-//			break;
-//		case PRPH_BLOCKBIT:
-//			if (iwx_read_prph(sc, addr) & (1 << val))
-//				goto monitor;
-//			break;
-//		default:
-//			DPRINTF(("%s: FW debug - unknown OP %d\n",
-//			    DEVNAME(sc), op));
-//			break;
-//		}
-//	}
-//
-//monitor:
-//	if (mon_mode == EXTERNAL_MODE && sc->fw_mon.size) {
-//		iwx_write_prph(sc, le32toh(base_reg),
-//		    sc->fw_mon.paddr >> base_shift);
-//		iwx_write_prph(sc, end_reg,
-//		    (sc->fw_mon.paddr + sc->fw_mon.size - 256)
-//		    >> end_shift);
-//	}
-//
-//	iwx_nic_unlock(sc);
-//	return 0;
-//}
-//
+int
+iwx_alloc_fw_monitor_block(struct iwx_softc *sc, uint8_t max_power,
+    uint8_t min_power)
+{
+	struct iwx_dma_info *fw_mon = &sc->fw_mon;
+	uint32_t size = 0;
+	uint8_t power;
+	int err;
+
+	if (fw_mon->size)
+		return 0;
+
+	for (power = max_power; power >= min_power; power--) {
+		size = (1 << power);
+
+		err = iwx_dma_contig_alloc(sc->sc_dmat, fw_mon, size, 0);
+		if (err)
+			continue;
+
+		DPRINTF(("%s: allocated 0x%08x bytes for firmware monitor.\n",
+			 DEVNAME(sc), size));
+		break;
+	}
+
+	if (err) {
+		fw_mon->size = 0;
+		return err;
+	}
+
+	if (power != max_power)
+		DPRINTF(("%s: Sorry - debug buffer is only %luK while you requested %luK\n",
+			DEVNAME(sc), (unsigned long)(1 << (power - 10)),
+			(unsigned long)(1 << (max_power - 10))));
+
+	return 0;
+}
+
+int
+iwx_alloc_fw_monitor(struct iwx_softc *sc, uint8_t max_power)
+{
+	if (!max_power) {
+		/* default max_power is maximum */
+		max_power = 26;
+	} else {
+		max_power += 11;
+	}
+
+	if (max_power > 26) {
+		 DPRINTF(("%s: External buffer size for monitor is too big %d, "
+		     "check the FW TLV\n", DEVNAME(sc), max_power));
+		return 0;
+	}
+
+	if (sc->fw_mon.size)
+		return 0;
+
+	return iwx_alloc_fw_monitor_block(sc, max_power, 11);
+}
+
+static int
+iwx_apply_debug_destination(struct iwx_softc *sc)
+{
+#if 0
+	struct iwx_fw_dbg_dest_tlv_v1 *dest_v1;
+	int i, err;
+	uint8_t mon_mode, size_power, base_shift, end_shift;
+	uint32_t base_reg, end_reg;
+
+	dest_v1 = sc->sc_fw.dbg_dest_tlv_v1;
+	mon_mode = dest_v1->monitor_mode;
+	size_power = dest_v1->size_power;
+	base_reg = le32toh(dest_v1->base_reg);
+	end_reg = le32toh(dest_v1->end_reg);
+	base_shift = dest_v1->base_shift;
+	end_shift = dest_v1->end_shift;
+
+	DPRINTF(("%s: applying debug destination %d\n", DEVNAME(sc), mon_mode));
+
+	if (mon_mode == EXTERNAL_MODE) {
+		err = iwx_alloc_fw_monitor(sc, size_power);
+		if (err)
+			return err;
+	}
+
+	if (!iwx_nic_lock(sc))
+		return EBUSY;
+
+	for (i = 0; i < sc->sc_fw.n_dest_reg; i++) {
+		uint32_t addr, val;
+		uint8_t op;
+
+		addr = le32toh(dest_v1->reg_ops[i].addr);
+		val = le32toh(dest_v1->reg_ops[i].val);
+		op = dest_v1->reg_ops[i].op;
+
+		DPRINTF(("%s: op=%u addr=%u val=%u\n", __func__, op, addr, val));
+		switch (op) {
+		case CSR_ASSIGN:
+			IWX_WRITE(sc, addr, val);
+			break;
+		case CSR_SETBIT:
+			IWX_SETBITS(sc, addr, (1 << val));
+			break;
+		case CSR_CLEARBIT:
+			IWX_CLRBITS(sc, addr, (1 << val));
+			break;
+		case PRPH_ASSIGN:
+			iwx_write_prph(sc, addr, val);
+			break;
+		case PRPH_SETBIT:
+			err = iwx_set_bits_prph(sc, addr, (1 << val));
+			if (err)
+				return err;
+			break;
+		case PRPH_CLEARBIT:
+			err = iwx_clear_bits_prph(sc, addr, (1 << val));
+			if (err)
+				return err;
+			break;
+		case PRPH_BLOCKBIT:
+			if (iwx_read_prph(sc, addr) & (1 << val))
+				goto monitor;
+			break;
+		default:
+			DPRINTF(("%s: FW debug - unknown OP %d\n",
+			    DEVNAME(sc), op));
+			break;
+		}
+	}
+
+monitor:
+	if (mon_mode == EXTERNAL_MODE && sc->fw_mon.size) {
+		iwx_write_prph(sc, le32toh(base_reg),
+		    sc->fw_mon.paddr >> base_shift);
+		iwx_write_prph(sc, end_reg,
+		    (sc->fw_mon.paddr + sc->fw_mon.size - 256)
+		    >> end_shift);
+	}
+
+	iwx_nic_unlock(sc);
+	return 0;
+#else
+	return 0;
+#endif
+}
+
 static void
 iwx_set_ltr(struct iwx_softc *sc)
 {
@@ -1057,83 +1063,87 @@ iwx_set_ltr(struct iwx_softc *sc)
 	}
 }
 
-//int
-//iwx_ctxt_info_init(struct iwx_softc *sc, const struct iwx_fw_sects *fws)
-//{
-//	struct iwx_context_info *ctxt_info;
-//	struct iwx_context_info_rbd_cfg *rx_cfg;
-//	uint32_t control_flags = 0;
-//	uint64_t paddr;
-//	int err;
-//
-//	ctxt_info = sc->ctxt_info_dma.vaddr;
-//	memset(ctxt_info, 0, sizeof(*ctxt_info));
-//
-//	ctxt_info->version.version = 0;
-//	ctxt_info->version.mac_id =
-//		htole16((uint16_t)IWX_READ(sc, IWX_CSR_HW_REV));
-//	/* size is in DWs */
-//	ctxt_info->version.size = htole16(sizeof(*ctxt_info) / 4);
-//
-//	KASSERT(IWX_RX_QUEUE_CB_SIZE(IWX_MQ_RX_TABLE_SIZE) < 0xF);
-//	control_flags = IWX_CTXT_INFO_TFD_FORMAT_LONG |
-//			(IWX_RX_QUEUE_CB_SIZE(IWX_MQ_RX_TABLE_SIZE) <<
-//			 IWX_CTXT_INFO_RB_CB_SIZE_POS) |
-//			(IWX_CTXT_INFO_RB_SIZE_4K << IWX_CTXT_INFO_RB_SIZE_POS);
-//	ctxt_info->control.control_flags = htole32(control_flags);
-//
-//	/* initialize RX default queue */
-//	rx_cfg = &ctxt_info->rbd_cfg;
-//	rx_cfg->free_rbd_addr = htole64(sc->rxq.free_desc_dma.paddr);
-//	rx_cfg->used_rbd_addr = htole64(sc->rxq.used_desc_dma.paddr);
-//	rx_cfg->status_wr_ptr = htole64(sc->rxq.stat_dma.paddr);
-//
-//	/* initialize TX command queue */
-//	ctxt_info->hcmd_cfg.cmd_queue_addr =
-//	    htole64(sc->txq[IWX_DQA_CMD_QUEUE].desc_dma.paddr);
-//	ctxt_info->hcmd_cfg.cmd_queue_size =
-//		IWX_TFD_QUEUE_CB_SIZE(IWX_TX_RING_COUNT);
-//
-//	/* allocate ucode sections in dram and set addresses */
-//	err = iwx_init_fw_sec(sc, fws, &ctxt_info->dram);
-//	if (err) {
-//		iwx_ctxt_info_free_fw_img(sc);
-//		return err;
-//	}
-//
-//	/* Configure debug, if exists */
-//	if (sc->sc_fw.dbg_dest_tlv_v1) {
-//		err = iwx_apply_debug_destination(sc);
-//		if (err) {
-//			iwx_ctxt_info_free_fw_img(sc);
-//			return err;
-//		}
-//	}
-//
-//	/*
-//	 * Write the context info DMA base address. The device expects a
-//	 * 64-bit address but a simple bus_space_write_8 to this register
-//	 * won't work on some devices, such as the AX201.
-//	 */
-//	paddr = sc->ctxt_info_dma.paddr;
-//	IWX_WRITE(sc, IWX_CSR_CTXT_INFO_BA, paddr & 0xffffffff);
-//	IWX_WRITE(sc, IWX_CSR_CTXT_INFO_BA + 4, paddr >> 32);
-//
-//	/* kick FW self load */
-//	if (!iwx_nic_lock(sc)) {
-//		iwx_ctxt_info_free_fw_img(sc);
-//		return EBUSY;
-//	}
-//
-//	iwx_set_ltr(sc);
-//	iwx_write_prph(sc, IWX_UREG_CPU_INIT_RUN, 1);
-//	iwx_nic_unlock(sc);
-//
-//	/* Context info will be released upon alive or failure to get one */
-//
-//	return 0;
-//}
-//
+int
+iwx_ctxt_info_init(struct iwx_softc *sc, const struct iwx_fw_sects *fws)
+{
+	struct iwx_context_info *ctxt_info;
+	struct iwx_context_info_rbd_cfg *rx_cfg;
+	uint32_t control_flags = 0;
+	uint64_t paddr;
+	int err;
+
+	ctxt_info = sc->ctxt_info_dma.vaddr;
+	memset(ctxt_info, 0, sizeof(*ctxt_info));
+
+	ctxt_info->version.version = 0;
+	ctxt_info->version.mac_id =
+		htole16((uint16_t)IWX_READ(sc, IWX_CSR_HW_REV));
+	/* size is in DWs */
+	ctxt_info->version.size = htole16(sizeof(*ctxt_info) / 4);
+
+	KASSERT(IWX_RX_QUEUE_CB_SIZE(IWX_MQ_RX_TABLE_SIZE) < 0xF,
+	    ("IWX_RX_QUEUE_CB_SIZE exceeds rate table size"));
+
+	control_flags = IWX_CTXT_INFO_TFD_FORMAT_LONG |
+			(IWX_RX_QUEUE_CB_SIZE(IWX_MQ_RX_TABLE_SIZE) <<
+			 IWX_CTXT_INFO_RB_CB_SIZE_POS) |
+			(IWX_CTXT_INFO_RB_SIZE_4K << IWX_CTXT_INFO_RB_SIZE_POS);
+	ctxt_info->control.control_flags = htole32(control_flags);
+
+	/* initialize RX default queue */
+	rx_cfg = &ctxt_info->rbd_cfg;
+	rx_cfg->free_rbd_addr = htole64(sc->rxq.free_desc_dma.paddr);
+	rx_cfg->used_rbd_addr = htole64(sc->rxq.used_desc_dma.paddr);
+	rx_cfg->status_wr_ptr = htole64(sc->rxq.stat_dma.paddr);
+
+	/* initialize TX command queue */
+	ctxt_info->hcmd_cfg.cmd_queue_addr =
+	    htole64(sc->txq[IWX_DQA_CMD_QUEUE].desc_dma.paddr);
+	ctxt_info->hcmd_cfg.cmd_queue_size =
+		IWX_TFD_QUEUE_CB_SIZE(IWX_TX_RING_COUNT);
+
+	/* allocate ucode sections in dram and set addresses */
+	err = iwx_init_fw_sec(sc, fws, &ctxt_info->dram);
+	if (err) {
+		iwx_ctxt_info_free_fw_img(sc);
+		return err;
+	}
+
+	/* Configure debug, if exists */
+	if (sc->sc_fw.dbg_dest_tlv_v1) {
+#if 1
+		err = iwx_apply_debug_destination(sc);
+		if (err) {
+			iwx_ctxt_info_free_fw_img(sc);
+			return err;
+		}
+#endif
+	}
+
+	/*
+	 * Write the context info DMA base address. The device expects a
+	 * 64-bit address but a simple bus_space_write_8 to this register
+	 * won't work on some devices, such as the AX201.
+	 */
+	paddr = sc->ctxt_info_dma.paddr;
+	IWX_WRITE(sc, IWX_CSR_CTXT_INFO_BA, paddr & 0xffffffff);
+	IWX_WRITE(sc, IWX_CSR_CTXT_INFO_BA + 4, paddr >> 32);
+
+	/* kick FW self load */
+	if (!iwx_nic_lock(sc)) {
+		iwx_ctxt_info_free_fw_img(sc);
+		return EBUSY;
+	}
+
+	iwx_set_ltr(sc);
+	iwx_write_prph(sc, IWX_UREG_CPU_INIT_RUN, 1);
+	iwx_nic_unlock(sc);
+
+	/* Context info will be released upon alive or failure to get one */
+
+	return 0;
+}
+
 static int
 iwx_ctxt_info_gen3_init(struct iwx_softc *sc, const struct iwx_fw_sects *fws)
 {
@@ -3937,7 +3947,7 @@ iwx_load_firmware(struct iwx_softc *sc)
 	if (sc->sc_device_family >= IWX_DEVICE_FAMILY_AX210)
 		err = iwx_ctxt_info_gen3_init(sc, fws);
 	else
-		panic("not ax210 device");
+		err = iwx_ctxt_info_init(sc, fws);
 	if (err) {
 		printf("%s: could not init context info\n", DEVNAME(sc));
 		return err;
@@ -4384,33 +4394,33 @@ iwx_config_ltr(struct iwx_softc *sc)
 	return iwx_send_cmd_pdu(sc, IWX_LTR_CONFIG, 0, sizeof(cmd), &cmd);
 }
 
-// TODO
-//static void
-//iwx_update_rx_desc(struct iwx_softc *sc, struct iwx_rx_ring *ring, int idx,
-//    bus_dma_segment_t *seg)
-//{
-//	struct iwx_rx_data *data = &ring->data[idx];
-//
-//	if (sc->sc_device_family >= IWX_DEVICE_FAMILY_AX210) {
-//		struct iwx_rx_transfer_desc *desc = ring->desc;
-//		desc[idx].rbid = htole16(idx & 0xffff);
-//		desc[idx].addr = htole64((*seg).ds_addr);
-//		bus_dmamap_sync(ring->data_dmat, data->map,
-//		    BUS_DMASYNC_PREWRITE);
-////		bus_dmamap_sync(sc->sc_dmat, ring->free_desc_dma.map,
-////		    idx * sizeof(*desc), sizeof(*desc),
-////		    BUS_DMASYNC_PREWRITE);
-//	} else {
+static void
+iwx_update_rx_desc(struct iwx_softc *sc, struct iwx_rx_ring *ring, int idx,
+    bus_dma_segment_t *seg)
+{
+	struct iwx_rx_data *data = &ring->data[idx];
+
+	if (sc->sc_device_family >= IWX_DEVICE_FAMILY_AX210) {
+		struct iwx_rx_transfer_desc *desc = ring->desc;
+		desc[idx].rbid = htole16(idx & 0xffff);
+		desc[idx].addr = htole64((*seg).ds_addr);
+		bus_dmamap_sync(ring->data_dmat, data->map,
+		    BUS_DMASYNC_PREWRITE);
+	} else {
+#if 0
+		panic("unsupported hardware");
+#else
 //		((uint64_t *)ring->desc)[idx] =
 //		    htole64(data->map->dm_segs[0].ds_addr | (idx & 0x0fff));
-////		bus_dmamap_sync(sc->sc_dmat, ring->free_desc_dma.map,
-////		    idx * sizeof(uint64_t), sizeof(uint64_t),
-////		    BUS_DMASYNC_PREWRITE);
-//		bus_dmamap_sync(ring->data_dmat, data->map,
-//		    BUS_DMASYNC_PREWRITE);
-//	}
-//}
-//
+		((uint64_t *)ring->desc)[idx] =
+		    htole64((*seg).ds_addr);
+		    //htole64(data->map->dm_segs[0].ds_addr | (idx & 0x0fff));
+		bus_dmamap_sync(ring->data_dmat, data->map,
+		    BUS_DMASYNC_PREWRITE);
+#endif
+	}
+}
+
 static int
 iwx_rx_addbuf(struct iwx_softc *sc, int size, int idx)
 {
@@ -4444,25 +4454,8 @@ iwx_rx_addbuf(struct iwx_softc *sc, int size, int idx)
 	data->m = m;
 	bus_dmamap_sync(ring->data_dmat, data->map, BUS_DMASYNC_PREREAD);
 
-//	/* Update RX descriptor. */
-//	iwx_update_rx_desc(sc, ring, idx);
-
-	if (sc->sc_device_family >= IWX_DEVICE_FAMILY_AX210) {
-		struct iwx_rx_transfer_desc *desc = ring->desc;
-		desc[idx].rbid = htole16(idx & 0xffff);
-		desc[idx].addr = htole64(seg.ds_addr);
-		bus_dmamap_sync(ring->data_dmat, data->map,
-		    BUS_DMASYNC_PREWRITE);
-	} else {
-		panic("currently unsupported iwx chip");
-//		((uint64_t *)ring->desc)[idx] =
-//		    htole64(data->map->dm_segs[0].ds_addr | (idx & 0x0fff));
-//		bus_dmamap_sync(sc->sc_dmat, ring->free_desc_dma.map,
-//		    idx * sizeof(uint64_t), sizeof(uint64_t),
-//		    BUS_DMASYNC_PREWRITE);
-//		bus_dmamap_sync(ring->data_dmat, data->map,
-//		    BUS_DMASYNC_PREWRITE);
-	}
+	/* Update RX descriptor. */
+	iwx_update_rx_desc(sc, ring, idx, &seg);
 	return 0;
 }
 
@@ -8183,42 +8176,46 @@ iwx_rs_ht_rates(struct iwx_softc *sc, struct ieee80211_node *ni, int rsidx)
 	return htrates;
 }
 
-//uint16_t
-//iwx_rs_vht_rates(struct iwx_softc *sc, struct ieee80211_node *ni, int num_ss)
-//{
-//	uint16_t rx_mcs;
-//	int max_mcs = -1;
-//
-//	rx_mcs = (ni->ni_vht_rxmcs & IEEE80211_VHT_MCS_FOR_SS_MASK(num_ss)) >>
-//	    IEEE80211_VHT_MCS_FOR_SS_SHIFT(num_ss);
-//	switch (rx_mcs) {
-//	case IEEE80211_VHT_MCS_SS_NOT_SUPP:
-//		break;
-//	case IEEE80211_VHT_MCS_0_7:
-//		max_mcs = 7;
-//		break;
-//	case IEEE80211_VHT_MCS_0_8:
-//		max_mcs = 8;
-//		break;
-//	case IEEE80211_VHT_MCS_0_9:
-//		/* Disable VHT MCS 9 for 20MHz-only stations. */
-//		if (!ieee80211_node_supports_ht_chan40(ni))
-//			max_mcs = 8;
-//		else
-//			max_mcs = 9;
-//		break;
-//	default:
-//		/* Should not happen; Values above cover the possible range. */
-//		panic("invalid VHT Rx MCS value %u", rx_mcs);
-//	}
-//
-//	return ((1 << (max_mcs + 1)) - 1);
-//}
-//
 #if 0
+uint16_t
+iwx_rs_vht_rates(struct iwx_softc *sc, struct ieee80211_node *ni, int num_ss)
+{
+	uint16_t rx_mcs;
+	int max_mcs = -1;
+
+	rx_mcs = (ni->ni_vht_rxmcs & IEEE80211_VHT_MCS_FOR_SS_MASK(num_ss)) >>
+	    IEEE80211_VHT_MCS_FOR_SS_SHIFT(num_ss);
+	switch (rx_mcs) {
+	case IEEE80211_VHT_MCS_SS_NOT_SUPP:
+		break;
+	case IEEE80211_VHT_MCS_0_7:
+		max_mcs = 7;
+		break;
+	case IEEE80211_VHT_MCS_0_8:
+		max_mcs = 8;
+		break;
+	case IEEE80211_VHT_MCS_0_9:
+		/* Disable VHT MCS 9 for 20MHz-only stations. */
+		if (!ieee80211_node_supports_ht_chan40(ni))
+			max_mcs = 8;
+		else
+			max_mcs = 9;
+		break;
+	default:
+		/* Should not happen; Values above cover the possible range. */
+		panic("invalid VHT Rx MCS value %u", rx_mcs);
+	}
+
+	return ((1 << (max_mcs + 1)) - 1);
+}
+#endif
+
 static int
 iwx_rs_init_v3(struct iwx_softc *sc, struct iwx_node *in)
 {
+#if 1
+	panic("unsupported hardware rs_init_v3");
+#else
 	struct ieee80211_node *ni = &in->in_ni;
 	struct ieee80211_rateset *rs = &ni->ni_rates;
 	struct iwx_tlc_config_cmd_v3 cfg_cmd;
@@ -8282,8 +8279,9 @@ iwx_rs_init_v3(struct iwx_softc *sc, struct iwx_node *in)
 
 	cmd_id = iwx_cmd_id(IWX_TLC_MNG_CONFIG_CMD, IWX_DATA_PATH_GROUP, 0);
 	return iwx_send_cmd_pdu(sc, cmd_id, IWX_CMD_ASYNC, cmd_size, &cfg_cmd);
-}
 #endif
+}
+
 static int
 iwx_rs_init_v4(struct iwx_softc *sc, struct iwx_node *in)
 {
@@ -11818,14 +11816,6 @@ iwx_attach(device_t dev)
 		sc->max_tfd_queue_size = IWX_TFD_QUEUE_SIZE_MAX_GEN3;
 	} else
 		sc->max_tfd_queue_size = IWX_TFD_QUEUE_SIZE_MAX;
-
-	/* XXX-THJ complain about pre ax210 hardware so we know who has it */
-	if (sc->sc_device_family == IWX_DEVICE_FAMILY_22000) {
-		device_printf(dev,
-		    "========== WARNING PRE AX210 HARDWARE - TELL TJ ========== ");
-		return (ENXIO);
-	}
-
 
 	/* Allocate DMA memory for loading firmware. */
 	if (sc->sc_device_family >= IWX_DEVICE_FAMILY_AX210)
