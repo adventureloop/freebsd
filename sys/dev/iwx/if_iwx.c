@@ -8878,10 +8878,12 @@ iwx_run(struct ieee80211vap *vap, struct iwx_softc *sc)
 //	if (ic->ic_opmode == IEEE80211_M_MONITOR)
 //		return 0;
 //
-//	/* Start at lowest available bit-rate. Firmware will raise. */
-//	in->in_ni.ni_txrate = 0;
-//	in->in_ni.ni_txmcs = 0;
-//
+#if 0
+	/* Start at lowest available bit-rate. Firmware will raise. */
+	in->in_ni.ni_txrate = 0;
+	in->in_ni.ni_txmcs = 0;
+#endif
+
 	err = iwx_rs_init(sc, in);
 	if (err) {
 		printf("%s: could not init rate scaling (error %d)\n",
