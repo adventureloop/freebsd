@@ -10689,7 +10689,7 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 			struct iwx_tlc_update_notif *notif;
 			SYNC_RESP_STRUCT(notif, pkt);
 			(void)notif;
-#if 0
+#if 1
 			if (iwx_rx_packet_payload_len(pkt) == sizeof(*notif))
 				iwx_rs_update(sc, notif);
 #endif
