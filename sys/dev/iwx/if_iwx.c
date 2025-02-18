@@ -6242,8 +6242,6 @@ iwx_tx_fill_cmd(struct iwx_softc *sc, struct iwx_node *in,
 			ridx = min_ridx;
 	}
 
-//	if ((ic->ic_flags & IEEE80211_F_RSNON) &&
-//	    ni->ni_rsn_supp_state == RSNA_SUPP_PTKNEGOTIATING)
 	if (m->m_flags & M_EAPOL)
 		*flags |= IWX_TX_FLAGS_HIGH_PRI;
 
@@ -8768,14 +8766,11 @@ iwx_deauth(struct iwx_softc *sc)
 static int
 iwx_run(struct ieee80211vap *vap, struct iwx_softc *sc)
 {
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct iwx_node *in = (void *)ic->ic_bss;
 	struct iwx_node *in = IWX_NODE(vap->iv_bss);
 	struct ieee80211_node *ni = &in->in_ni;
 	struct iwx_vap *ivp = IWX_VAP(vap);
 	int err;
 
-//	splassert(IPL_NET);
 	IWX_ASSERT_LOCKED(sc);
 
 //	if (ic->ic_opmode == IEEE80211_M_MONITOR) {
