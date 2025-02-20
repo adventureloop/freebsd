@@ -593,8 +593,7 @@ u_int8_t etheranyaddr[ETHER_ADDR_LEN] =
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 #ifdef IWX_DEBUG
-#define DPRINTF(x)	do { if (iwx_debug > 0) { printf x; } } while (0)
-int iwx_debug = 0;
+#define DPRINTF(x)	do { if (sc->sc_debug > 0) { printf x; } } while (0)
 #else
 #define DPRINTF(x)	do { ; } while (0)
 #endif
@@ -1360,9 +1359,11 @@ iwx_read_firmware(struct iwx_softc *sc)
 		err = ENOENT;
 		goto out;
 	}
-//	if (ic->ic_if.if_flags & IFF_DEBUG)
-//		printf("%s: using firmware %s\n", DEVNAME(sc), sc->sc_fwname);
-//
+
+	IWX_DPRINTF(sc, IWX_DEBUG_FW, "%s:%d %s: using firmware %s\n",
+		__func__, __LINE__, DEVNAME(sc), sc->sc_fwname);
+
+
 	sc->sc_capaflags = 0;
 	sc->sc_capa_n_scan_channels = IWX_DEFAULT_SCAN_CHANNELS;
 	memset(sc->sc_enabled_capa, 0, sizeof(sc->sc_enabled_capa));
@@ -3769,7 +3770,6 @@ iwx_sta_tx_agg_start(struct iwx_softc *sc, struct ieee80211_node *ni,
 void
 iwx_ba_rx_task(void *arg, int npending __unused)
 {
-	DPRINTF(("%s\n", __func__));
 	struct iwx_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 //	struct ieee80211_node *ni = ic->ic_bss;
@@ -3813,7 +3813,6 @@ iwx_ba_rx_task(void *arg, int npending __unused)
 void
 iwx_ba_tx_task(void *arg, int npending __unused)
 {
-	DPRINTF(("%s\n", __func__));
 	struct iwx_softc *sc = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 //	struct ieee80211_node *ni = ic->ic_bss;
@@ -5435,6 +5434,9 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 	}
 
 //	if (iwx_detect_duplicate(sc, m, desc, &rxi)) {
+//#ifdef IWX_DEBUG
+//		iwx_bbl_add_entry(sc->sc_dups++, IWX_BBL_PKT_DUP);
+//#endif
 //		m_freem(m);
 //		return;
 //	}
@@ -5992,6 +5994,9 @@ iwx_phy_ctxt_cmd(struct iwx_softc *sc, struct iwx_phy_ctxt *ctxt,
 static int
 iwx_send_cmd(struct iwx_softc *sc, struct iwx_host_cmd *hcmd)
 {
+#ifdef IWX_DEBUG
+        iwx_bbl_add_entry(hcmd->id, IWX_BBL_CMD_TX);
+#endif
 	struct iwx_tx_ring *ring = &sc->txq[IWX_DQA_CMD_QUEUE];
 	struct iwx_tfh_tfd *desc;
 	struct iwx_tx_data *txdata;
@@ -6624,6 +6629,9 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 		memcpy(tx->hdr, wh, hdrlen);
 		txcmd_size = sizeof(*tx);
 	}
+#if IWX_DEBUG
+	iwx_bbl_add_entry(totlen, IWX_BBL_PKT_TX);
+#endif
 
 	/* Trim 802.11 header. */
 	m_adj(m, hdrlen);
@@ -7669,12 +7677,6 @@ iwx_umac_scan_v14(struct iwx_softc *sc, int bgscan)
 		DPRINTF(("%s: Active scan started for ssid ", __func__));
 		memcpy(scan_p->probe_params.direct_scan[i].ssid,
 		    ss->ss_ssid[i].ssid, ss->ss_ssid[i].len);
-#ifdef IWX_DEBUG
-		if (iwx_debug)
-			ieee80211_print_essid(ss->ss_ssid[i].ssid,
-			    ss->ss_ssid[i].len);
-		DPRINTF(("\n"));
-#endif
 		n_ssid++;
 		bitmap_ssid |= (1 << i);
 	}
@@ -7694,18 +7696,13 @@ iwx_umac_scan_v14(struct iwx_softc *sc, int bgscan)
 static void
 iwx_mcc_update(struct iwx_softc *sc, struct iwx_mcc_chub_notif *notif)
 {
-	struct ieee80211com *ic = &sc->sc_ic;
-	struct ifnet *ifp = IC2IFP(ic);
 	char alpha2[3];
 
 	snprintf(alpha2, sizeof(alpha2), "%c%c",
 	    (le16toh(notif->mcc) & 0xff00) >> 8, le16toh(notif->mcc) & 0xff);
 
-//	if (ifp->if_flags & IFF_DEBUG) {
-	if (if_getflags(ifp) & IFF_DEBUG) {
-		printf("%s: firmware has detected regulatory domain '%s' "
+	IWX_DPRINTF(sc, IWX_DEBUG_FW, "%s: firmware has detected regulatory domain '%s' "
 		    "(0x%x)\n", DEVNAME(sc), alpha2, le16toh(notif->mcc));
-	}
 
 	/* TODO: Schedule a task to send MCC_UPDATE_CMD? */
 }
@@ -8728,10 +8725,6 @@ iwx_phy_ctxt_update(struct iwx_softc *sc, struct iwx_phy_ctxt *phyctxt,
 static int
 iwx_auth(struct ieee80211vap *vap, struct iwx_softc *sc)
 {
-#ifdef IWX_DEBUG
-	if (iwx_debug)
-		kdb_backtrace();
-#endif
 	struct ieee80211com *ic = &sc->sc_ic;
 //	struct iwx_node *in = (void *)ic->ic_bss;
 	struct iwx_node *in;
@@ -9379,9 +9372,6 @@ iwx_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 	struct ieee80211com *ic = vap->iv_ic;
 	enum ieee80211_state ostate = vap->iv_state;
 	int err;
-
-	DPRINTF(("%s: %s -> %s\n", __func__, ieee80211_state_name[ostate],
-	    ieee80211_state_name[nstate]));
 
 	/*
 	 * Prevent attempts to transition towards the same state, unless
@@ -10102,17 +10092,13 @@ iwx_watchdog(void *arg)
 		if (sc->sc_tx_timer[i] > 0) {
 			if (--sc->sc_tx_timer[i] == 0) {
 				printf("%s: device timeout\n", DEVNAME(sc));
-//				if (ifp->if_flags & IFF_DEBUG) {
-//					iwx_nic_error(sc);
-//					iwx_dump_driver_status(sc);
-//				}
-				printf("%s: GOS-3758: 1\n", __func__);
+
+				if (sc->sc_debug)
+					iwx_bbl_print_log();
+
 				iwx_nic_error(sc);
-				printf("%s: GOS-3758: 2\n", __func__);
 				iwx_dump_driver_status(sc);
-				printf("%s: GOS-3758: 3\n", __func__);
 				ieee80211_restart_all(ic);
-				printf("%s: GOS-3758: 4\n", __func__);
 //				if ((sc->sc_flags & IWX_FLAG_SHUTDOWN) == 0)
 //					task_add(systq, &sc->init_task);
 //				ifp->if_oerrors++;
@@ -10421,7 +10407,6 @@ iwx_rx_pkt_valid(struct iwx_rx_packet *pkt)
 }
 
 static void
-//iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf_list *ml)
 iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
@@ -10431,24 +10416,18 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 	const size_t minsz = sizeof(pkt->len_n_flags) + sizeof(pkt->hdr);
 	int qid, idx, code, handled = 1;
 
-//	// XXX:misha sync is in iwx_notif_intr
-//	bus_dmamap_sync(sc->sc_dmat, data->map, 0, IWX_RBUF_SIZE,
-//	    BUS_DMASYNC_POSTREAD);
-//
 	m0 = data->m;
 	while (m0 && offset + minsz < IWX_RBUF_SIZE) {
 		pkt = (struct iwx_rx_packet *)(m0->m_data + offset);
 		qid = pkt->hdr.qid;
 		idx = pkt->hdr.idx;
-
-//		printf("%s: qid=%i\n", __func__, qid);
-//		printf("%s: idx=%i\n", __func__, idx);
-//
 		code = IWX_WIDE_ID(pkt->hdr.flags, pkt->hdr.code);
 
 		if (!iwx_rx_pkt_valid(pkt))
 			break;
-
+#ifdef IWX_DEBUG
+        iwx_bbl_add_entry(pkt->hdr.code, IWX_BBL_CMD_RX);
+#endif
 		/*
 		 * XXX Intel inside (tm)
 		 * Any commands in the LONG_GROUP could actually be in the
@@ -12013,7 +11992,7 @@ iwx_attach(device_t dev)
 #ifdef IWX_DEBUG
 	SYSCTL_ADD_INT(device_get_sysctl_ctx(dev),
 	    SYSCTL_CHILDREN(device_get_sysctl_tree(dev)), OID_AUTO, "debug",
-	    CTLFLAG_RWTUN, &iwx_debug, 0, "control debugging");
+	    CTLFLAG_RWTUN, &sc->sc_debug, 0, "bitmask to control debugging");
 
 	SYSCTL_ADD_INT(device_get_sysctl_ctx(dev),
 	    SYSCTL_CHILDREN(device_get_sysctl_tree(dev)), OID_AUTO, "himark",
@@ -12139,7 +12118,6 @@ fail1:
 static int
 iwx_detach(device_t dev)
 {
-	DPRINTF(("%s\n", __func__));
 	struct iwx_softc *sc = device_get_softc(dev);
 	int txq_i;
 
@@ -12309,7 +12287,6 @@ iwx_vap_delete(struct ieee80211vap *vap)
 void
 iwx_parent(struct ieee80211com *ic)
 {
-	DPRINTF(("%s\n", __func__));
 	struct iwx_softc *sc = ic->ic_softc;
 	IWX_LOCK(sc);
 //	int startall = 0;
@@ -12459,10 +12436,6 @@ int
 iwx_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
     const struct ieee80211_bpf_params *params)
 {
-#ifdef IWX_DEBUG
-	if (iwx_debug)
-		kdb_backtrace();
-#endif
 	struct ieee80211com *ic = ni->ni_ic;
 	struct iwx_softc *sc = ic->ic_softc;
 	int err;
@@ -12581,14 +12554,12 @@ iwx_addba_response(struct ieee80211_node *ni, struct ieee80211_tx_ampdu *tap,
 void
 iwx_key_update_begin(struct ieee80211vap *vap)
 {
-	DPRINTF(("%s\n", __func__));
 	return;
 }
 
 void
 iwx_key_update_end(struct ieee80211vap *vap)
 {
-	DPRINTF(("%s\n", __func__));
 	return;
 }
 
@@ -12599,7 +12570,6 @@ iwx_key_alloc(struct ieee80211vap *vap, struct ieee80211_key *k,
 //	k->wk_flags &= ~IEEE80211_KEY_SWCRYPT;
 //	k->wk_flags |= IEEE80211_KEY_SWENCRYPT;
 //	k->wk_flags |= IEEE80211_KEY_SWENMIC;
-	DPRINTF(("%s\n", __func__));
 
 	if (k->wk_cipher->ic_cipher == IEEE80211_CIPHER_AES_CCM) {
 		return 1;
@@ -12621,7 +12591,7 @@ iwx_key_alloc(struct ieee80211vap *vap, struct ieee80211_key *k,
 		*keyix = 0;	/* NB: use key index 0 for ucast key */
 	} else {
 		*keyix = ieee80211_crypto_get_key_wepidx(vap, k);
-		DPRINTF(("%s: keyix=%i\n", __func__, *keyix));
+//		DPRINTF(("%s: keyix=%i\n", __func__, *keyix));
 	}
 	*rxkeyix = IEEE80211_KEYIX_NONE;	/* XXX maybe *keyix? */
 	return 1;
@@ -12630,7 +12600,6 @@ iwx_key_alloc(struct ieee80211vap *vap, struct ieee80211_key *k,
 int
 iwx_key_set(struct ieee80211vap *vap, const struct ieee80211_key *k)
 {
-	DPRINTF(("%s\n", __func__));
 	struct ieee80211com *ic = vap->iv_ic;
 	struct iwx_softc *sc = ic->ic_softc;
 //	struct iwx_node *in = IWX_NODE(vap->iv_bss);
@@ -12731,11 +12700,6 @@ iwx_key_set(struct ieee80211vap *vap, const struct ieee80211_key *k)
 int
 iwx_key_delete(struct ieee80211vap *vap, const struct ieee80211_key *k)
 {
-#ifdef IWX_DEBUG
-	if (iwx_debug > 0)
-		kdb_backtrace();
-#endif
-	DPRINTF(("%s\n", __func__));
 	return 1;
 }
 

@@ -852,6 +852,7 @@ struct iwx_softc {
 		struct iwx_nvm_get_info_rsp_v3	rsp_v3;
 
 	} sc_rsp_info;
+	uint32_t sc_debug;
 
 	// TODO:misha addba_stop?
 
