@@ -11052,10 +11052,11 @@ iwx_intr_msix(void *arg)
 	if ((inta_fh & IWX_MSIX_FH_INT_CAUSES_FH_ERR) ||
 	    (inta_hw & IWX_MSIX_HW_INT_CAUSES_REG_SW_ERR) ||
 	    (inta_hw & IWX_MSIX_HW_INT_CAUSES_REG_SW_ERR_V2)) {
-//		if (ifp->if_flags & IFF_DEBUG) {
+		if (sc->sc_debug) {
+			iwx_bbl_print_log();
 			iwx_nic_error(sc);
 			iwx_dump_driver_status(sc);
-//		}
+		}
 		printf("%s: fatal firmware error\n", DEVNAME(sc));
 //		if ((sc->sc_flags & IWX_FLAG_SHUTDOWN) == 0)
 //			task_add(systq, &sc->init_task);
