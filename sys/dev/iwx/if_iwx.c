@@ -4702,12 +4702,10 @@ iwx_get_noise(const struct iwx_statistics_rx_non_phy *stats)
 //
 static int
 iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status)
-//    struct ieee80211_rxinfo *rxi)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ifnet *ifp = IC2IFP(ic);
 	struct ieee80211_frame *wh;
-//	struct ieee80211_node *ni;
 	int ret = 0;
 	uint8_t type, subtype;
 
@@ -4715,73 +4713,38 @@ iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status)
 
 	type = wh->i_fc[0] & IEEE80211_FC0_TYPE_MASK;
 	if (type == IEEE80211_FC0_TYPE_CTL) {
-//		printf("%s: IEEE80211_FC0_TYPE_CTL\n", __func__);
 		return 0;
 	}
 
 	subtype = wh->i_fc[0] & IEEE80211_FC0_SUBTYPE_MASK;
 	if (ieee80211_has_qos(wh) && (subtype & IEEE80211_FC0_SUBTYPE_NODATA)) {
-//		printf("%s:  IEEE80211_FC0_SUBTYPE_NODATA\n", __func__);
 		return 0;
 	}
 
 
-//	ni = ieee80211_find_rxnode(ic, (const struct ieee80211_frame_min *)wh);
-//	printf("%s: ni=%p\n", __func__, ni);
-//	if (ni == NULL)
-//		return 0;
-	/* Handle hardware decryption. */
-//	printf("%s: IEEE80211_FC1_PROTECTED=%i\n", __func__, (wh->i_fc[1] &
-//	    IEEE80211_FC1_PROTECTED));
 	if (((wh->i_fc[0] & IEEE80211_FC0_TYPE_MASK) !=
 	    IEEE80211_FC0_TYPE_CTL)
-	    && (wh->i_fc[1] & IEEE80211_FC1_PROTECTED)) {// &&
-//	    (ni->ni_flags & IEEE80211_NODE_RXPROT) &&
-//	    ((!IEEE80211_IS_MULTICAST(wh->i_addr1)/* &&
-//	    ni->ni_rsncipher == IEEE80211_CIPHER_CCMP*/) ||
-//	    (IEEE80211_IS_MULTICAST(wh->i_addr1)/* &&
-//	    ni->ni_rsngroupcipher == IEEE80211_CIPHER_CCMP*/)))
-//		printf("%s: IEEE80211_IS_MULTICAST(wh->i_addr1)=%i\n", __func__,
-//		    IEEE80211_IS_MULTICAST(wh->i_addr1));
-//		printf("%s: (wh->i_fc[0] & IEEE80211_FC0_TYPE_MASK)=0x%x\n",
-//		    __func__, (wh->i_fc[0] & IEEE80211_FC0_TYPE_MASK));
-//		printf("%s: wh->i_addr1=%s\n", __func__,
-//		    ether_sprintf(wh->i_addr1));
-//		printf("%s: wh->i_addr2=%s\n", __func__,
-//		    ether_sprintf(wh->i_addr2));
-//		printf("%s: wh->i_addr3=%s\n", __func__,
-//		    ether_sprintf(wh->i_addr3));
-//		printf("%s: 1 enc mask=%x\n", __func__, (rx_pkt_status &
-//		    IWX_RX_MPDU_RES_STATUS_SEC_ENC_MSK));
+	    && (wh->i_fc[1] & IEEE80211_FC1_PROTECTED)) {
 		if ((rx_pkt_status & IWX_RX_MPDU_RES_STATUS_SEC_ENC_MSK) !=
 		    IWX_RX_MPDU_RES_STATUS_SEC_CCM_ENC) {
-//			ic->ic_stats.is_ccmp_dec_errs++;
 			DPRINTF(("%s: not IWX_RX_MPDU_RES_STATUS_SEC_CCM_ENC\n", __func__));
 			ret = 1;
 			goto out;
-		} /* else
-			printf("%s: 2\n", __func__); */
+		}
 		/* Check whether decryption was successful or not. */
 		if ((rx_pkt_status &
 		    (IWX_RX_MPDU_RES_STATUS_DEC_DONE |
 		    IWX_RX_MPDU_RES_STATUS_MIC_OK)) !=
 		    (IWX_RX_MPDU_RES_STATUS_DEC_DONE |
 		    IWX_RX_MPDU_RES_STATUS_MIC_OK)) {
-//			ic->ic_stats.is_ccmp_dec_errs++;
-//			printf("%s: 3\n", __func__);
 			DPRINTF(("%s: not IWX_RX_MPDU_RES_STATUS_MIC_OK\n", __func__));
 			ret = 1;
 			goto out;
-		} /* else
-			printf("%s: 4\n", __func__); */
-//		rxi->rxi_flags |= IEEE80211_RXI_HWDEC;
-	} /*else
-		printf("%s: 5\n", __func__);*/
-out:
+		}
+	} 
+	out:
 	if (ret)
-//		ifp->if_ierrors++;
-		if_inc_counter(ifp, IFCOUNTER_OERRORS, 1);
-//	ieee80211_release_node(ic, ni);
+		if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);
 	return ret;
 }
 
