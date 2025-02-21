@@ -4594,117 +4594,138 @@ iwx_rx_frame(struct iwx_softc *sc, struct mbuf *m, int chanidx,
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211_frame *wh;
 	struct ieee80211_node *ni;
-//
-//	if (chanidx < 0 || chanidx >= nitems(ic->ic_channels))
-//		chanidx = ieee80211_chan2ieee(ic, ic->ic_ibss_chan);
-//
+
+	/* 
+	 * We need to turn the hardware provided channel index into a channel
+	 * and then find it in our ic_channels array
+	 */
+	if (chanidx < 0 || chanidx >= nitems(ic->ic_channels)) {
+		/* 
+		 * OpenBSD points this at the ibss chan, which it defaults to
+		 * channel 1 and then never touches again. Skip a step.
+		 */
+		printf("%s:%d controlling chanidx to 1 (%d)\n", __func__, __LINE__, chanidx);
+		chanidx = 1;
+	}
+
+	int channel = chanidx;
+	for (int i = 0; i < ic->ic_nchans; i++) {
+		if (ic->ic_channels[i].ic_ieee == channel) {
+			chanidx = i;
+		} 
+	}
+	ic->ic_curchan = &ic->ic_channels[chanidx];
+
 	wh = mtod(m, struct ieee80211_frame *);
 	ni = ieee80211_find_rxnode(ic, (struct ieee80211_frame_min *)wh);
-//	if (IEEE80211_QOS_HAS_SEQ(wh)) {
-//		ieee80211_dump_pkt(ic, (const uint8_t *)wh, m->m_len, 0, -1);
-//	}
-//	if ((rxi->rxi_flags & IEEE80211_RXI_HWDEC) &&
-//	    iwx_ccmp_decap(sc, m, ni, rxi) != 0) {
-//		ifp->if_ierrors++;
-//		m_freem(m);
-//		ieee80211_release_node(ic, ni);
-//		return;
-//	}
-//
-//#if NBPFILTER > 0
-//	if (sc->sc_drvbpf != NULL) {
-//		struct iwx_rx_radiotap_header *tap = &sc->sc_rxtap;
-//		uint16_t chan_flags;
-//		int have_legacy_rate = 1;
-//		uint8_t mcs, rate;
-//
-//		tap->wr_flags = 0;
-//		if (is_shortpre)
-//			tap->wr_flags |= IEEE80211_RADIOTAP_F_SHORTPRE;
-//		tap->wr_chan_freq =
-//		    htole16(ic->ic_channels[chanidx].ic_freq);
-//		chan_flags = ic->ic_channels[chanidx].ic_flags;
-//		if (ic->ic_curmode != IEEE80211_MODE_11N &&
-//		    ic->ic_curmode != IEEE80211_MODE_11AC) {
-//			chan_flags &= ~IEEE80211_CHAN_HT;
-//			chan_flags &= ~IEEE80211_CHAN_40MHZ;
-//		}
-//		if (ic->ic_curmode != IEEE80211_MODE_11AC)
-//			chan_flags &= ~IEEE80211_CHAN_VHT;
-//		tap->wr_chan_flags = htole16(chan_flags);
-//		tap->wr_dbm_antsignal = (int8_t)rxi->rxi_rssi;
-//		tap->wr_dbm_antnoise = (int8_t)sc->sc_noise;
-//		tap->wr_tsft = device_timestamp;
-//		if (sc->sc_rate_n_flags_version >= 2) {
-//			uint32_t mod_type = (rate_n_flags &
-//			    IWX_RATE_MCS_MOD_TYPE_MSK);
-//			const struct ieee80211_rateset *rs = NULL;
-//			uint32_t ridx;
-//			have_legacy_rate = (mod_type == IWX_RATE_MCS_CCK_MSK ||
-//			    mod_type == IWX_RATE_MCS_LEGACY_OFDM_MSK);
-//			mcs = (rate_n_flags & IWX_RATE_HT_MCS_CODE_MSK);
-//			ridx = (rate_n_flags & IWX_RATE_LEGACY_RATE_MSK);
-//			if (mod_type == IWX_RATE_MCS_CCK_MSK)
-//				rs = &ieee80211_std_rateset_11b;
-//			else if (mod_type == IWX_RATE_MCS_LEGACY_OFDM_MSK)
-//				rs = &ieee80211_std_rateset_11a;
-//			if (rs && ridx < rs->rs_nrates) {
-//				rate = (rs->rs_rates[ridx] &
-//				    IEEE80211_RATE_VAL);
-//			} else
-//				rate = 0;
-//		} else {
-//			have_legacy_rate = ((rate_n_flags &
-//			    (IWX_RATE_MCS_HT_MSK_V1 |
-//			    IWX_RATE_MCS_VHT_MSK_V1)) == 0);
-//			mcs = (rate_n_flags &
-//			    (IWX_RATE_HT_MCS_RATE_CODE_MSK_V1 |
-//			    IWX_RATE_HT_MCS_NSS_MSK_V1));
-//			rate = (rate_n_flags & IWX_RATE_LEGACY_RATE_MSK_V1);
-//		}
-//		if (!have_legacy_rate) {
-//			tap->wr_rate = (0x80 | mcs);
-//		} else {
-//			switch (rate) {
-//			/* CCK rates. */
-//			case  10: tap->wr_rate =   2; break;
-//			case  20: tap->wr_rate =   4; break;
-//			case  55: tap->wr_rate =  11; break;
-//			case 110: tap->wr_rate =  22; break;
-//			/* OFDM rates. */
-//			case 0xd: tap->wr_rate =  12; break;
-//			case 0xf: tap->wr_rate =  18; break;
-//			case 0x5: tap->wr_rate =  24; break;
-//			case 0x7: tap->wr_rate =  36; break;
-//			case 0x9: tap->wr_rate =  48; break;
-//			case 0xb: tap->wr_rate =  72; break;
-//			case 0x1: tap->wr_rate =  96; break;
-//			case 0x3: tap->wr_rate = 108; break;
-//			/* Unknown rate: should not happen. */
-//			default:  tap->wr_rate =   0;
-//			}
-//		}
-//
-//		bpf_mtap_hdr(sc->sc_drvbpf, tap, sc->sc_rxtap_len,
-//		    m, BPF_DIRECTION_IN);
-//	}
-//#endif
-//	ieee80211_inputm(IC2IFP(ic), m, ni, rxi, ml);
-//	ieee80211_release_node(ic, ni);
 
-	IWX_UNLOCK(sc);
-	if (ni != NULL) {
-//		DPRINTF(("input m %p\n", m));
-		if (ni->ni_flags & IEEE80211_NODE_HT)
-			m->m_flags |= M_AMPDU;
-		ieee80211_input_mimo(ni, m);
-		ieee80211_free_node(ni);
-	} else {
-//		DPRINTF(("inputall m %p\n", m));
-		ieee80211_input_mimo_all(ic, m);
-//		printf("%s: ieee80211_input_mimo_all=%i\n", __func__, ret);
+#if 0	/* XXX hw decrypt */
+	if ((rxi->rxi_flags & IEEE80211_RXI_HWDEC) &&
+	    iwx_ccmp_decap(sc, m, ni, rxi) != 0) {
+#if 0
+		ifp->if_ierrors++;
+#else
+printf("%s:%d if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);\n", __func__, __LINE__);
+#endif
+		m_freem(m);
+		ieee80211_release_node(ic, ni);
+		return;
 	}
-	IWX_LOCK(sc);
+#endif
+#if 0
+#if NBPFILTER > 0
+	if (sc->sc_drvbpf != NULL) {
+		struct iwx_rx_radiotap_header *tap = &sc->sc_rxtap;
+		uint16_t chan_flags;
+		int have_legacy_rate = 1;
+		uint8_t mcs, rate;
+
+		tap->wr_flags = 0;
+		if (is_shortpre)
+			tap->wr_flags |= IEEE80211_RADIOTAP_F_SHORTPRE;
+		tap->wr_chan_freq =
+		    htole16(ic->ic_channels[chanidx].ic_freq);
+		chan_flags = ic->ic_channels[chanidx].ic_flags;
+#if 0
+		if (ic->ic_curmode != IEEE80211_MODE_11N &&
+		    ic->ic_curmode != IEEE80211_MODE_11AC) {
+			chan_flags &= ~IEEE80211_CHAN_HT;
+			chan_flags &= ~IEEE80211_CHAN_40MHZ;
+		}
+		if (ic->ic_curmode != IEEE80211_MODE_11AC)
+			chan_flags &= ~IEEE80211_CHAN_VHT;
+#else
+		chan_flags &= ~IEEE80211_CHAN_HT;
+#endif
+		tap->wr_chan_flags = htole16(chan_flags);
+		tap->wr_dbm_antsignal = (int8_t)rxi->rxi_rssi;
+		tap->wr_dbm_antnoise = (int8_t)sc->sc_noise;
+		tap->wr_tsft = device_timestamp;
+		if (sc->sc_rate_n_flags_version >= 2) {
+			uint32_t mod_type = (rate_n_flags &
+			    IWX_RATE_MCS_MOD_TYPE_MSK);
+			const struct ieee80211_rateset *rs = NULL;
+			uint32_t ridx;
+			have_legacy_rate = (mod_type == IWX_RATE_MCS_CCK_MSK ||
+			    mod_type == IWX_RATE_MCS_LEGACY_OFDM_MSK);
+			mcs = (rate_n_flags & IWX_RATE_HT_MCS_CODE_MSK);
+			ridx = (rate_n_flags & IWX_RATE_LEGACY_RATE_MSK);
+			if (mod_type == IWX_RATE_MCS_CCK_MSK)
+				rs = &ieee80211_std_rateset_11b;
+			else if (mod_type == IWX_RATE_MCS_LEGACY_OFDM_MSK)
+				rs = &ieee80211_std_rateset_11a;
+			if (rs && ridx < rs->rs_nrates) {
+				rate = (rs->rs_rates[ridx] &
+				    IEEE80211_RATE_VAL);
+			} else
+				rate = 0;
+		} else {
+			have_legacy_rate = ((rate_n_flags &
+			    (IWX_RATE_MCS_HT_MSK_V1 |
+			    IWX_RATE_MCS_VHT_MSK_V1)) == 0);
+			mcs = (rate_n_flags &
+			    (IWX_RATE_HT_MCS_RATE_CODE_MSK_V1 |
+			    IWX_RATE_HT_MCS_NSS_MSK_V1));
+			rate = (rate_n_flags & IWX_RATE_LEGACY_RATE_MSK_V1);
+		}
+		if (!have_legacy_rate) {
+			tap->wr_rate = (0x80 | mcs);
+		} else {
+			switch (rate) {
+			/* CCK rates. */
+			case  10: tap->wr_rate =   2; break;
+			case  20: tap->wr_rate =   4; break;
+			case  55: tap->wr_rate =  11; break;
+			case 110: tap->wr_rate =  22; break;
+			/* OFDM rates. */
+			case 0xd: tap->wr_rate =  12; break;
+			case 0xf: tap->wr_rate =  18; break;
+			case 0x5: tap->wr_rate =  24; break;
+			case 0x7: tap->wr_rate =  36; break;
+			case 0x9: tap->wr_rate =  48; break;
+			case 0xb: tap->wr_rate =  72; break;
+			case 0x1: tap->wr_rate =  96; break;
+			case 0x3: tap->wr_rate = 108; break;
+			/* Unknown rate: should not happen. */
+			default:  tap->wr_rate =   0;
+			}
+		}
+
+		bpf_mtap_hdr(sc->sc_drvbpf, tap, sc->sc_rxtap_len,
+		    m, BPF_DIRECTION_IN);
+	}
+#endif
+#endif
+
+	if (ni == NULL) {
+		if (ieee80211_input_mimo_all(ic, m) == -1)
+			printf("%s:%d input_all returned -1\n", __func__, __LINE__);
+	} else {
+
+		if (ieee80211_input_mimo(ni, m) == -1)
+			printf("%s:%d input_all returned -1\n", __func__, __LINE__);
+		ieee80211_free_node(ni);
+	}
 }
 
 ///*
@@ -5263,15 +5284,20 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 	rxs.r_flags |= IEEE80211_R_IEEE | IEEE80211_R_FREQ;
 	rxs.r_flags |= IEEE80211_R_BAND;
 	rxs.r_flags |= IEEE80211_R_NF | IEEE80211_R_RSSI;
+	rxs.r_flags |= IEEE80211_R_RSSI | IEEE80211_R_C_RSSI;
+	rxs.r_flags |= IEEE80211_R_TSF32 | IEEE80211_R_TSF_START;
+
 	rxs.c_ieee = chanidx;
 	rxs.c_freq = ieee80211_ieee2mhz(rxs.c_ieee,
 	    chanidx <= 14 ? IEEE80211_CHAN_2GHZ : IEEE80211_CHAN_5GHZ);
 	rxs.c_band = chanidx <= 14 ? IEEE80211_CHAN_2GHZ : IEEE80211_CHAN_5GHZ;
+	rxs.c_rx_tsf = device_timestamp;
+	rxs.c_chain = chanidx;
 
 	/* rssi is in 1/2db units */
 	rxs.c_rssi = rssi * 2;
-//	rxs.c_nf = -96; /* Hardcoded from iwm */
 	rxs.c_nf = sc->sc_noise;
+
 //	if (k != NULL && k->wk_cipher->ic_cipher == IEEE80211_CIPHER_AES_CCM) {
 	if (pad) {
 		rxs.c_pktflags |= IEEE80211_RX_F_DECRYPTED;
@@ -5283,20 +5309,15 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 		return;
 	}
 
-//	rssi = iwx_rxmq_get_signal_strength(sc, desc);
-//	rssi = (0 - IWX_MIN_DBM) + rssi;	/* normalize */
-//	rssi = MIN(rssi, ic->ic_max_rssi);	/* clip to max. 100% */
-//
-//	rxi.rxi_rssi = rssi;
-//	rxi.rxi_tstamp = device_timestamp;
-//	rxi.rxi_chan = chanidx;
-//
-//	if (iwx_rx_reorder(sc, m, chanidx, desc,
-//	    (phy_info & IWX_RX_MPDU_PHY_SHORT_PREAMBLE),
-//	    rate_n_flags, device_timestamp, &rxi, ml))
-//		return;
-//
-//
+	ieee80211_add_rx_params(m, &rxs);
+
+#if 0
+	if (iwx_rx_reorder(sc, m, chanidx, desc,
+	    (phy_info & IWX_RX_MPDU_PHY_SHORT_PREAMBLE),
+	    rate_n_flags, device_timestamp, &rxi, ml))
+		return;
+#endif
+
 	if (pad) {
 #define TRIM 8
 		struct ieee80211_frame *wh = mtod(m, struct ieee80211_frame *);
@@ -5308,7 +5329,7 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 
 	iwx_rx_frame(sc, m, chanidx, le16toh(desc->status),
 	    (phy_info & IWX_RX_MPDU_PHY_SHORT_PREAMBLE),
-	    rate_n_flags, device_timestamp/*, &rxi, ml*/);
+	    rate_n_flags, device_timestamp);
 }
 
 static void
