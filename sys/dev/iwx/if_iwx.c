@@ -4630,7 +4630,6 @@ iwx_get_noise(const struct iwx_statistics_rx_non_phy *stats)
 
 	total = nbant = noise = 0;
 	for (i = 0; i < 3; i++) {
-//		noise = letoh32(stats->beacon_silence_rssi[i]) & 0xff;
 		noise = le32toh(stats->beacon_silence_rssi[i]) & 0xff;
 		if (noise) {
 			total += noise;
