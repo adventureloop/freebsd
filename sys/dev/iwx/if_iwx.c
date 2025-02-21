@@ -5465,7 +5465,6 @@ iwx_rx_tx_cmd(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
 	ieee80211_tx_complete(&in->in_ni, m, txfail);
 #else
 	if (txfail)
-//		ifp->if_oerrors++;
 		if_inc_counter(ifp, IFCOUNTER_OERRORS, 1);
 	else {
 		if_inc_counter(ifp, IFCOUNTER_OBYTES, m->m_pkthdr.len);
@@ -12251,10 +12250,7 @@ iwx_start(struct iwx_softc *sc)
         while (sc->qfullmsk == 0 && (m = mbufq_dequeue(&sc->sc_snd)) != NULL) {
                 ni = (struct ieee80211_node *)m->m_pkthdr.rcvif;
                 if (iwx_tx(sc, m, ni) != 0) {
-//                      if_inc_counter(ni->ni_vap->iv_ifp, IFCOUNTER_OERRORS,  
-//                          1);
-                        //TODO
-//                      ieee80211_free_node(ni);
+                      if_inc_counter(ni->ni_vap->iv_ifp, IFCOUNTER_OERRORS, 1);
                         continue;
                 }
         }
