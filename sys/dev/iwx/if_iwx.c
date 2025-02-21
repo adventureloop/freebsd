@@ -4538,17 +4538,10 @@ iwx_update_rx_desc(struct iwx_softc *sc, struct iwx_rx_ring *ring, int idx,
 		bus_dmamap_sync(ring->data_dmat, data->map,
 		    BUS_DMASYNC_PREWRITE);
 	} else {
-#if 0
-		panic("unsupported hardware");
-#else
-//		((uint64_t *)ring->desc)[idx] =
-//		    htole64(data->map->dm_segs[0].ds_addr | (idx & 0x0fff));
 		((uint64_t *)ring->desc)[idx] =
 		    htole64((*seg).ds_addr);
-		    //htole64(data->map->dm_segs[0].ds_addr | (idx & 0x0fff));
 		bus_dmamap_sync(ring->data_dmat, data->map,
 		    BUS_DMASYNC_PREWRITE);
-#endif
 	}
 }
 
