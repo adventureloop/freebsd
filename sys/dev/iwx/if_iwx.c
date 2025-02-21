@@ -3192,7 +3192,6 @@ iwx_fw_valid_rx_ant(struct iwx_softc *sc)
 	return rx_ant;
 }
 
-#if 1
 static void
 iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
     struct ieee80211_channel chans[])
@@ -3271,64 +3270,6 @@ iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
                     0); // | NET80211_CBW_FLAG_HT40 | NET80211_CBW_FLAG_VHT80);
         }
 }
-#else
-static void
-iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
-    struct ieee80211_channel chans[])
-{
-	struct iwx_softc *sc = ic->ic_softc;
-	struct iwx_nvm_data *data = &sc->sc_nvm;
-	uint8_t bands[IEEE80211_MODE_BYTES];
-//	size_t ch_num;
-
-	memset(bands, 0, sizeof(bands));
-	/* 1-13: 11b/g channels. */
-	setbit(bands, IEEE80211_MODE_11B);
-	setbit(bands, IEEE80211_MODE_11G);
-	setbit(bands, IEEE80211_MODE_11NG);
-//	iwx_add_channel_band(sc, chans, maxchans, nchans, 0,
-//	    IWX_NUM_2GHZ_CHANNELS - 1, bands);
-	ieee80211_add_channel_list_2ghz(chans, maxchans, nchans,
-	    iwx_nvm_channels_uhb,
-	    IWX_NUM_2GHZ_CHANNELS, bands,
-	    NET80211_CBW_FLAG_HT40/* | NET80211_CBW_FLAG_VHT80*/);
-
-	/* 14: 11b channel only. */
-	clrbit(bands, IEEE80211_MODE_11G);
-	clrbit(bands, IEEE80211_MODE_11NG);
-//	iwx_add_channel_band(sc, chans, maxchans, nchans,
-//	    IWX_NUM_2GHZ_CHANNELS - 1, IWX_NUM_2GHZ_CHANNELS, bands);
-	ieee80211_add_channel_list_2ghz(chans, maxchans, nchans,
-	    iwx_nvm_channels_uhb + IWX_NUM_2GHZ_CHANNELS - 1,
-	    1, bands,
-	    0);
-
-//	/* 1-13: 11n channels. */
-//	iwm_add_channel_band40(sc, chans, maxchans, nchans, 0,
-//	    IWM_NUM_2GHZ_CHANNELS);
-//	ieee80211_add_channel_list_2ghz(chans, maxchans, nchans,
-//	    iwx_nvm_channels_uhb,
-//	    IWX_NUM_2GHZ_CHANNELS, bands,
-//	    0 | NET80211_CBW_FLAG_HT40/* | NET80211_CBW_FLAG_VHT80*/);
-//
-	if (data->sku_cap_band_52GHz_enable) {
-//		if (sc->cfg->device_family == IWM_DEVICE_FAMILY_7000)
-//			ch_num = nitems(iwm_nvm_channels);
-//		else
-//			ch_num = nitems(iwm_nvm_channels_8000);
-		memset(bands, 0, sizeof(bands));
-		setbit(bands, IEEE80211_MODE_11A);
-		setbit(bands, IEEE80211_MODE_11NA);
-		setbit(bands, IEEE80211_MODE_VHT_5GHZ);
-
-		DPRINTF(("%s: will add 5ghz chans\n", __func__));
-		ieee80211_add_channel_list_5ghz(chans, maxchans, nchans,
-		    iwx_nvm_channels_uhb + IWX_NUM_2GHZ_CHANNELS,
-		    IWX_NUM_5GHZ_CHANNELS, bands,
-		    0 | NET80211_CBW_FLAG_HT40 | NET80211_CBW_FLAG_VHT80);
-	}
-}
-#endif
 
 static int
 iwx_mimo_enabled(struct iwx_softc *sc)
