@@ -469,7 +469,7 @@ static void	iwx_power_build_cmd(struct iwx_softc *, struct iwx_node *,
 	    struct iwx_mac_power_cmd *);
 static int	iwx_power_mac_update_mode(struct iwx_softc *, struct iwx_node *);
 static int	iwx_power_update_device(struct iwx_softc *);
-//int	iwx_enable_beacon_filter(struct iwx_softc *, struct iwx_node *);
+static int	iwx_enable_beacon_filter(struct iwx_softc *, struct iwx_node *);
 static int	iwx_disable_beacon_filter(struct iwx_softc *);
 static int	iwx_add_sta_cmd(struct iwx_softc *, struct iwx_node *, int);
 static int	iwx_rm_sta_cmd(struct iwx_softc *, struct iwx_node *);
@@ -4604,7 +4604,7 @@ iwx_rx_frame(struct iwx_softc *sc, struct mbuf *m, int chanidx,
 		 * OpenBSD points this at the ibss chan, which it defaults to
 		 * channel 1 and then never touches again. Skip a step.
 		 */
-		printf("%s:%d controlling chanidx to 1 (%d)\n", __func__, __LINE__, chanidx);
+		printf("iwx: %s:%d controlling chanidx to 1 (%d)\n", __func__, __LINE__, chanidx);
 		chanidx = 1;
 	}
 
@@ -6809,23 +6809,23 @@ iwx_power_update_device(struct iwx_softc *sc)
 	    IWX_POWER_TABLE_CMD, 0, sizeof(cmd), &cmd);
 }
 
-//int
-//iwx_enable_beacon_filter(struct iwx_softc *sc, struct iwx_node *in)
-//{
-//	struct iwx_beacon_filter_cmd cmd = {
-//		IWX_BF_CMD_CONFIG_DEFAULTS,
-//		.bf_enable_beacon_filter = htole32(1),
-//		.ba_enable_beacon_abort = htole32(sc->sc_bf.ba_enabled),
-//	};
-//	int err;
-//
-//	err = iwx_beacon_filter_send_cmd(sc, &cmd);
-//	if (err == 0)
-//		sc->sc_bf.bf_enabled = 1;
-//
-//	return err;
-//}
-//
+int
+iwx_enable_beacon_filter(struct iwx_softc *sc, struct iwx_node *in)
+{
+	struct iwx_beacon_filter_cmd cmd = {
+		IWX_BF_CMD_CONFIG_DEFAULTS,
+		.bf_enable_beacon_filter = htole32(1),
+		.ba_enable_beacon_abort = htole32(sc->sc_bf.ba_enabled),
+	};
+	int err;
+
+	err = iwx_beacon_filter_send_cmd(sc, &cmd);
+	if (err == 0)
+		sc->sc_bf.bf_enabled = 1;
+
+	return err;
+}
+
 static int
 iwx_disable_beacon_filter(struct iwx_softc *sc)
 {
@@ -8689,19 +8689,19 @@ iwx_run(struct ieee80211vap *vap, struct iwx_softc *sc)
 		    DEVNAME(sc), err);
 		return err;
 	}
-//#ifdef notyet
-//	/*
-//	 * Disabled for now. Default beacon filter settings
-//	 * prevent net80211 from getting ERP and HT protection
-//	 * updates from beacons.
-//	 */
-//	err = iwx_enable_beacon_filter(sc, in);
-//	if (err) {
-//		printf("%s: could not enable beacon filter\n",
-//		    DEVNAME(sc));
-//		return err;
-//	}
-//#endif
+#ifdef notyet
+	/*
+	 * Disabled for now. Default beacon filter settings
+	 * prevent net80211 from getting ERP and HT protection
+	 * updates from beacons.
+	 */
+	err = iwx_enable_beacon_filter(sc, in);
+	if (err) {
+		printf("%s: could not enable beacon filter\n",
+		    DEVNAME(sc));
+		return err;
+	}
+#endif
 	err = iwx_power_mac_update_mode(sc, in);
 	if (err) {
 		printf("%s: could not update MAC power (error %d)\n",
