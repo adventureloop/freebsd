@@ -593,7 +593,7 @@ u_int8_t etheranyaddr[ETHER_ADDR_LEN] =
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 #ifdef IWX_DEBUG
-#define DPRINTF(x)	do { if (sc->sc_debug > 0) { printf x; } } while (0)
+#define DPRINTF(x)	do { if (sc->sc_debug == IWX_DEBUG_ANY) { printf x; } } while (0)
 #else
 #define DPRINTF(x)	do { ; } while (0)
 #endif
