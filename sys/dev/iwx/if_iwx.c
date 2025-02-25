@@ -8116,7 +8116,7 @@ static int
 iwx_rs_init_v3(struct iwx_softc *sc, struct iwx_node *in)
 {
 #if 1
-	panic("unsupported hardware rs_init_v3");
+	panic("iwx: Trying to init rate set on untested version");
 #else
 	struct ieee80211_node *ni = &in->in_ni;
 	struct ieee80211_rateset *rs = &ni->ni_rates;
@@ -8286,11 +8286,7 @@ iwx_rs_init(struct iwx_softc *sc, struct iwx_node *in)
 	if (cmd_ver == 4)
 		return iwx_rs_init_v4(sc, in);
 	else
-#if 0
 		return iwx_rs_init_v3(sc, in);
-#else
-		panic("Unsupported iwx hardware");
-#endif
 }
 
 #if 1
