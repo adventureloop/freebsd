@@ -4696,6 +4696,7 @@ printf("%s:%d if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);\n", __func__, __LINE__)
 #endif
 #endif
 
+	IWX_UNLOCK(sc);
 	if (ni == NULL) {
 		if (ieee80211_input_mimo_all(ic, m) == -1)
 			printf("%s:%d input_all returned -1\n", __func__, __LINE__);
@@ -4705,6 +4706,7 @@ printf("%s:%d if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);\n", __func__, __LINE__)
 			printf("%s:%d input_all returned -1\n", __func__, __LINE__);
 		ieee80211_free_node(ni);
 	}
+	IWX_LOCK(sc);
 }
 
 ///*
