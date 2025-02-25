@@ -6223,10 +6223,11 @@ iwx_tx_fill_cmd(struct iwx_softc *sc, struct iwx_node *in,
 	} else
 		rate_flags |= rinfo->plcp;
 
-//	*rate_n_flags = 0x4106;
 	*rate_n_flags = rate_flags;
-	printf("%s:%d flags=0x%x\n", __func__, __LINE__, *flags);
-	printf("%s:%d rate_n_flags=0x%x\n", __func__, __LINE__, *rate_n_flags);
+	IWX_DPRINTF(sc, IWX_DEBUG_TXRATE, "%s:%d flags=0x%x\n",
+	    __func__, __LINE__,*flags);
+	IWX_DPRINTF(sc, IWX_DEBUG_TXRATE, "%s:%d rate_n_flags=0x%x\n",
+	    __func__, __LINE__, *rate_n_flags);
 
 	return rinfo;
 }
