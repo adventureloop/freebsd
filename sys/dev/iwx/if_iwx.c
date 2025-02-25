@@ -1726,6 +1726,10 @@ iwx_read_firmware(struct iwx_softc *sc)
 		case 0x100000c:
 			break;
 
+		/* undocumented TLV found in iwx-ty-a0-gf-a0-89 image */
+		case 69:
+			break;
+
 		default:
 			err = EINVAL;
 			goto parse_out;
