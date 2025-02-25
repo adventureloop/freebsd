@@ -2922,7 +2922,6 @@ static int
 iwx_enable_txq(struct iwx_softc *sc, int sta_id, int qid, int tid,
     int num_slots)
 {
-	DPRINTF(("%s\n", __func__));
 	struct iwx_rx_packet *pkt;
 	struct iwx_tx_queue_cfg_rsp *resp;
 	struct iwx_tx_queue_cfg_cmd cmd_v0;
@@ -8562,7 +8561,6 @@ rm_mac_ctxt:
 static int
 iwx_deauth(struct iwx_softc *sc)
 {
-	DPRINTF(("%s\n", __func__));
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 	struct iwx_node *in = IWX_NODE(vap->iv_bss);
@@ -8717,7 +8715,6 @@ iwx_run(struct ieee80211vap *vap, struct iwx_softc *sc)
 static int
 iwx_run_stop(struct iwx_softc *sc)
 {
-	DPRINTF(("%s\n", __func__));
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 	struct iwx_node *in = IWX_NODE(vap->iv_bss);
@@ -9331,7 +9328,6 @@ iwx_send_temp_report_ths_cmd(struct iwx_softc *sc)
 int
 iwx_init_hw(struct iwx_softc *sc)
 {
-printf("%s:%d\n", __func__, __LINE__);
 	struct ieee80211com *ic = &sc->sc_ic;
 	int err = 0, i;
 
@@ -11899,8 +11895,6 @@ iwx_scan_start(struct ieee80211com *ic)
 	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 	struct iwx_softc *sc = ic->ic_softc;
 	int err;
-
-	DPRINTF(("%s\n", __func__));
 
 	IWX_LOCK(sc);
 	if ((ic->ic_flags_ext & IEEE80211_FEXT_BGSCAN) == 0)
