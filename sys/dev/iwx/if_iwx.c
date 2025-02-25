@@ -9816,7 +9816,7 @@ static struct {
 	{ "NMI_INTERRUPT_INST_ACTION_PT", 0x86 },
 	{ "ADVANCED_SYSASSERT", 0 },
 };
-//
+
 static const char *
 iwx_desc_lookup(uint32_t num)
 {
@@ -10015,7 +10015,6 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 			break;
 
 		case IWX_REPLY_RX_MPDU_CMD: {
-//			printf(" -------------------- RX MDPU -------------------- \n");
 			size_t maxlen = IWX_RBUF_SIZE - offset - minsz;
 			nextoff = offset +
 			    roundup(len, IWX_FH_RSCSR_FRAME_ALIGN);
@@ -10219,8 +10218,6 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 			if (sc->sc_cmd_resp_pkt[idx] == NULL)
 				break;
 
-//			bus_dmamap_sync(sc->sc_dmat, data->map, 0,
-//			    sizeof(*pkt), BUS_DMASYNC_POSTREAD);
 			bus_dmamap_sync(sc->rxq.data_dmat, data->map,
 			    BUS_DMASYNC_POSTREAD);
 
@@ -10235,8 +10232,6 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 				break;
 			}
 
-//			bus_dmamap_sync(sc->sc_dmat, data->map, sizeof(*pkt),
-//			    pkt_len - sizeof(*pkt), BUS_DMASYNC_POSTREAD);
 			bus_dmamap_sync(sc->rxq.data_dmat, data->map,
 			    BUS_DMASYNC_POSTREAD);
 			memcpy(sc->sc_cmd_resp_pkt[idx], pkt, pkt_len);
@@ -10430,7 +10425,6 @@ iwx_notif_intr(struct iwx_softc *sc)
 	while (sc->rxq.cur != hw) {
 		struct iwx_rx_data *data = &sc->rxq.data[sc->rxq.cur];
 
-		// XXX:misha from iwm
 		bus_dmamap_sync(sc->rxq.data_dmat, data->map,
 		BUS_DMASYNC_POSTREAD);
 
@@ -11129,34 +11123,22 @@ out:
 const struct iwx_device_cfg *
 iwx_find_device_cfg(struct iwx_softc *sc)
 {
-//	pcireg_t sreg;
-//	pci_product_id_t sdev_id;
 	uint16_t mac_type, rf_type;
 	uint8_t mac_step, cdb, jacket, rf_id, no_160, cores;
 	int i;
 	uint16_t sdev_id;
 
-//	sreg = pci_conf_read(sc->sc_pct, sc->sc_pcitag, PCI_SUBSYS_ID_REG);
 	sdev_id = pci_get_device(sc->sc_dev);
-	sdev_id = 36;
-	DPRINTF(("%s: sdev_id=%d\n", __func__, sdev_id));
+	sdev_id = 36;		// TODO-THJ: why is this a static assignment?
 	mac_type = IWX_CSR_HW_REV_TYPE(sc->sc_hw_rev);
-	DPRINTF(("%s: mac_type=%d\n", __func__, mac_type));
 	mac_step = IWX_CSR_HW_REV_STEP(sc->sc_hw_rev << 2);
-	DPRINTF(("%s: mac_step=%d\n", __func__, mac_step));
 	rf_type = IWX_CSR_HW_RFID_TYPE(sc->sc_hw_rf_id);
-	DPRINTF(("%s: rf_type=%d\n", __func__, rf_type));
 	cdb = IWX_CSR_HW_RFID_IS_CDB(sc->sc_hw_rf_id);
-	DPRINTF(("%s: cdb=%d\n", __func__, cdb));
 	jacket = IWX_CSR_HW_RFID_IS_JACKET(sc->sc_hw_rf_id);
-	DPRINTF(("%s: jacket=%d\n", __func__, jacket));
 
 	rf_id = IWX_SUBDEVICE_RF_ID(sdev_id);
-	DPRINTF(("%s: rf_id=%d\n", __func__, rf_id));
 	no_160 = IWX_SUBDEVICE_NO_160(sdev_id);
-	DPRINTF(("%s: no_160=%d\n", __func__, no_160));
 	cores = IWX_SUBDEVICE_CORES(sdev_id);
-	DPRINTF(("%s: cores=%d\n", __func__, cores));
 
 	for (i = nitems(iwx_dev_info_table) - 1; i >= 0; i--) {
 		 const struct iwx_dev_info *dev_info = &iwx_dev_info_table[i];
@@ -11441,24 +11423,6 @@ iwx_attach(device_t dev)
 			sc->sc_xtal_latency = cfg->xtal_latency;
 			sc->sc_low_latency_xtal = cfg->low_latency_xtal;
 		}
-	}
-
-	// XXX: We support only subset of AX210 family and AX211
-	if (strcmp(sc->sc_fwname, IWX_TY_A_GF_A_FW) != 0 &&
-	    strcmp(sc->sc_fwname, IWX_SO_A_GF_A_FW) != 0) {
-		device_printf(dev, "not IWX_TY_A_GF_A_FW "
-		    "or IWX_SO_A_GF_A_FW firmware\n\tDon't panic, but maybe worry\n");
-#if 0
-		device_printf(dev, "not IWX_TY_A_GF_A_FW "
-		    "or IWX_SO_A_GF_A_FW firmware, abort\n");
-		bus_teardown_intr(dev, sc->sc_irq, sc->sc_ih);
-		bus_release_resource(dev, SYS_RES_IRQ, rman_get_rid(sc->sc_irq),
-		    sc->sc_irq);
-		pci_release_msi(dev);
-		bus_release_resource(dev, SYS_RES_MEMORY,
-		    rman_get_rid(sc->sc_mem), sc->sc_mem);
-		return (ENXIO);
-#endif
 	}
 
 	sc->mac_addr_from_csr = 0x380; /* differs on BZ hw generation */
@@ -11827,25 +11791,7 @@ iwx_parent(struct ieee80211com *ic)
 {
 	struct iwx_softc *sc = ic->ic_softc;
 	IWX_LOCK(sc);
-//	int startall = 0;
-//	int rfkill = 0;
 
-//	IWM_LOCK(sc);
-//	if (ic->ic_nrunning > 0) {
-//		if (!(sc->sc_flags & IWM_FLAG_HW_INITED)) {
-//			iwm_init(sc);
-//			rfkill = iwm_check_rfkill(sc);
-//			if (!rfkill)
-//				startall = 1;
-//		}
-//	} else if (sc->sc_flags & IWM_FLAG_HW_INITED)
-//		iwm_stop(sc);
-//	IWM_UNLOCK(sc);
-//	if (startall)
-//		ieee80211_start_all(ic);
-//	else if (rfkill)
-//		taskqueue_enqueue(sc->sc_tq, &sc->sc_rftoggle_task);
-//
 	if (sc->sc_flags & IWX_FLAG_HW_INITED) {
 		iwx_stop(sc);
 		sc->sc_flags &= ~IWX_FLAG_HW_INITED;
@@ -11871,18 +11817,6 @@ iwx_suspend(device_t dev)
 int
 iwx_resume(device_t dev)
 {
-	return 0;
-//	case DVACT_RESUME:
-//		iwx_resume(sc);
-//		break;
-//	case DVACT_WAKEUP:
-//		if ((ifp->if_flags & (IFF_UP | IFF_RUNNING)) == IFF_UP) {
-//			err = iwx_wakeup(sc);
-//			if (err)
-//				printf("%s: could not initialize hardware\n",
-//				    DEVNAME(sc));
-//		}
-
 	struct iwx_softc *sc = device_get_softc(dev);
 	int err;
 
@@ -11964,7 +11898,6 @@ iwx_endscan_cb(void *arg, int pending)
 	ieee80211_scan_done(TAILQ_FIRST(&ic->ic_vaps));
 }
 
-// TODO
 int
 iwx_wme_update(struct ieee80211com *ic)
 {
@@ -11994,7 +11927,6 @@ iwx_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
 int
 iwx_transmit(struct ieee80211com *ic, struct mbuf *m)
 {
-//	kdb_backtrace();
 	struct iwx_softc *sc = ic->ic_softc;
 	int error;
 
@@ -12141,7 +12073,6 @@ iwx_key_set(struct ieee80211vap *vap, const struct ieee80211_key *k)
 	 * Currently we only implement station mode where 'ni' is always
 	 * ic->ic_bss so there is no need to validate arguments beyond this:
 	 */
-//	KASSERT(ni == ic->ic_bss);
 
 	memset(&cmd, 0, sizeof(cmd));
 
