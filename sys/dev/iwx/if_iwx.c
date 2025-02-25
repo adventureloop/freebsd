@@ -413,8 +413,8 @@ static int	iwx_config_ltr(struct iwx_softc *);
 static void iwx_update_rx_desc(struct iwx_softc *, struct iwx_rx_ring *, int, bus_dma_segment_t *);
 static int iwx_rx_addbuf(struct iwx_softc *, int, int);
 static int	iwx_rxmq_get_signal_strength(struct iwx_softc *, struct iwx_rx_mpdu_desc *);
-//void	iwx_rx_rx_phy_cmd(struct iwx_softc *, struct iwx_rx_packet *,
-//	    struct iwx_rx_data *);
+static void	iwx_rx_rx_phy_cmd(struct iwx_softc *, struct iwx_rx_packet *,
+    struct iwx_rx_data *);
 static int	iwx_get_noise(const struct iwx_statistics_rx_non_phy *);
 static int	iwx_rx_hwdecrypt(struct iwx_softc *, struct mbuf *, uint32_t);
 //	    struct ieee80211_rxinfo *);
@@ -4447,18 +4447,19 @@ iwx_rxmq_get_signal_strength(struct iwx_softc *sc,
 	return MAX(energy_a, energy_b);
 }
 
-//void
-//iwx_rx_rx_phy_cmd(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
-//    struct iwx_rx_data *data)
-//{
-//	struct iwx_rx_phy_info *phy_info = (void *)pkt->data;
-//
-//	bus_dmamap_sync(sc->sc_dmat, data->map, sizeof(*pkt),
-//	    sizeof(*phy_info), BUS_DMASYNC_POSTREAD);
-//
-//	memcpy(&sc->sc_last_phy_info, phy_info, sizeof(sc->sc_last_phy_info));
-//}
-//
+void
+iwx_rx_rx_phy_cmd(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
+    struct iwx_rx_data *data)
+{
+	struct iwx_rx_phy_info *phy_info = (void *)pkt->data;
+	struct iwx_cmd_header *cmd_hdr = &pkt->hdr;
+	int qid = cmd_hdr->qid;
+	struct iwx_tx_ring *ring = &sc->txq[qid];
+
+	bus_dmamap_sync(ring->data_dmat, data->map, BUS_DMASYNC_PREREAD);
+	memcpy(&sc->sc_last_phy_info, phy_info, sizeof(sc->sc_last_phy_info));
+}
+
 /*
  * Retrieve the average noise (in dBm) among receivers.
  */
@@ -10013,10 +10014,12 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 		}
 
 		switch (code) {
-//		case IWX_REPLY_RX_PHY_CMD:
-//			iwx_rx_rx_phy_cmd(sc, pkt, data);
-//			break;
-//
+		case IWX_REPLY_RX_PHY_CMD:
+#if 0
+			iwx_rx_rx_phy_cmd(sc, pkt, data);
+#endif
+			break;
+
 		case IWX_REPLY_RX_MPDU_CMD: {
 //			printf(" -------------------- RX MDPU -------------------- \n");
 			size_t maxlen = IWX_RBUF_SIZE - offset - minsz;
