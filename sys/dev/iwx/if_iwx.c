@@ -652,33 +652,11 @@ const struct ieee80211_rateset ieee80211_std_rateset_11b =
 const struct ieee80211_rateset ieee80211_std_rateset_11g =
 	{ 12, { 2, 4, 11, 22, 12, 18, 24, 36, 48, 72, 96, 108 } };
 
-#define	IEEE80211_FC0_SUBTYPE_QOS		0x80
-inline int
-ieee80211_has_qos(const struct ieee80211_frame *wh)
-{
-	return (wh->i_fc[0] &
-	    (IEEE80211_FC0_TYPE_MASK | IEEE80211_FC0_SUBTYPE_QOS)) ==
-	    (IEEE80211_FC0_TYPE_DATA | IEEE80211_FC0_SUBTYPE_QOS);
-}
-
 inline int
 ieee80211_has_addr4(const struct ieee80211_frame *wh)
 {
 	return (wh->i_fc[1] & IEEE80211_FC1_DIR_MASK) ==
 	    IEEE80211_FC1_DIR_DSTODS;
-}
-
-__inline u_int16_t
-ieee80211_get_qos(const struct ieee80211_frame *wh)
-{
-	const u_int8_t *frm;
-
-	if (ieee80211_has_addr4(wh))
-		frm = ((const struct ieee80211_qosframe_addr4 *)wh)->i_qos;
-	else
-		frm = ((const struct ieee80211_qosframe *)wh)->i_qos;
-
-	return le16toh(*(const u_int16_t *)frm);
 }
 
 #define TRACEP printf("%s:%d\n", __func__, __LINE__)
@@ -4556,7 +4534,7 @@ iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status)
 	}
 
 	subtype = wh->i_fc[0] & IEEE80211_FC0_SUBTYPE_MASK;
-	if (ieee80211_has_qos(wh) && (subtype & IEEE80211_FC0_SUBTYPE_NODATA)) {
+	if (IEEE80211_QOS_HAS_SEQ(wh) && (subtype & IEEE80211_FC0_SUBTYPE_NODATA)) {
 		return 0;
 	}
 
@@ -6321,8 +6299,8 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 	qid = sc->first_data_qid;
 
 //	/* Put QoS frames on the data queue which maps to their TID. */
-	if (ieee80211_has_qos(wh) && (sc->sc_flags & IWX_FLAG_AMPDUTX)) {
-		uint16_t qos = ieee80211_get_qos(wh);
+	if (IEEE80211_QOS_HAS_SEQ(wh) && (sc->sc_flags & IWX_FLAG_AMPDUTX)) {
+		uint16_t qos = ieee80211_gettid(wh);
 		uint8_t tid = qos & IEEE80211_QOS_TID;
 //
 //		ba = &ni->ni_tx_ba[tid];
