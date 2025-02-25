@@ -797,9 +797,11 @@ iwx_init_fw_sec(struct iwx_softc *sc, const struct iwx_fw_sects *fws,
 			return ret;
 		ctxt_dram->lmac_img[i] =
 			htole64(dram->fw[fw_cnt].paddr);
-		DPRINTF(("%s: firmware LMAC section %d at 0x%llx size %lld\n", __func__, i,
+		IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+		    "%s: firmware LMAC section %d at 0x%llx size %lld\n",
+		    __func__, i,
 		    (unsigned long long)dram->fw[fw_cnt].paddr,
-		    (unsigned long long)dram->fw[fw_cnt].size));
+		    (unsigned long long)dram->fw[fw_cnt].size);
 		fw_cnt++;
 	}
 
@@ -812,9 +814,11 @@ iwx_init_fw_sec(struct iwx_softc *sc, const struct iwx_fw_sects *fws,
 			return ret;
 		ctxt_dram->umac_img[i] =
 			htole64(dram->fw[fw_cnt].paddr);
-		DPRINTF(("%s: firmware UMAC section %d at 0x%llx size %lld\n", __func__, i,
-			(unsigned long long)dram->fw[fw_cnt].paddr,
-			(unsigned long long)dram->fw[fw_cnt].size));
+		IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+		    "%s: firmware UMAC section %d at 0x%llx size %lld\n",
+		    __func__, i,
+		    (unsigned long long)dram->fw[fw_cnt].paddr,
+		    (unsigned long long)dram->fw[fw_cnt].size);
 		fw_cnt++;
 	}
 
@@ -838,9 +842,11 @@ iwx_init_fw_sec(struct iwx_softc *sc, const struct iwx_fw_sects *fws,
 			return ret;
 
 		ctxt_dram->virtual_img[i] = htole64(dram->paging[i].paddr);
-		DPRINTF(("%s: firmware paging section %d at 0x%llx size %lld\n", __func__, i,
+		IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+		    "%s: firmware paging section %d at 0x%llx size %lld\n",
+		    __func__, i,
 		    (unsigned long long)dram->paging[i].paddr,
-		    (unsigned long long)dram->paging[i].size));
+		    (unsigned long long)dram->paging[i].size);
 	}
 
 	return 0;
@@ -879,8 +885,9 @@ iwx_alloc_fw_monitor_block(struct iwx_softc *sc, uint8_t max_power,
 		if (err)
 			continue;
 
-		DPRINTF(("%s: allocated 0x%08x bytes for firmware monitor.\n",
-			 DEVNAME(sc), size));
+		IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+		    "%s: allocated 0x%08x bytes for firmware monitor.\n",
+		    DEVNAME(sc), size);
 		break;
 	}
 
@@ -890,9 +897,10 @@ iwx_alloc_fw_monitor_block(struct iwx_softc *sc, uint8_t max_power,
 	}
 
 	if (power != max_power)
-		DPRINTF(("%s: Sorry - debug buffer is only %luK while you requested %luK\n",
-			DEVNAME(sc), (unsigned long)(1 << (power - 10)),
-			(unsigned long)(1 << (max_power - 10))));
+		IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+		    "%s: Sorry - debug buffer is only %luK while you requested %luK\n",
+		    DEVNAME(sc), (unsigned long)(1 << (power - 10)),
+		    (unsigned long)(1 << (max_power - 10)));
 
 	return 0;
 }
@@ -908,8 +916,9 @@ iwx_alloc_fw_monitor(struct iwx_softc *sc, uint8_t max_power)
 	}
 
 	if (max_power > 26) {
-		 DPRINTF(("%s: External buffer size for monitor is too big %d, "
-		     "check the FW TLV\n", DEVNAME(sc), max_power));
+		 IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+		     "%s: External buffer size for monitor is too big %d, "
+		     "check the FW TLV\n", DEVNAME(sc), max_power);
 		return 0;
 	}
 
@@ -1252,7 +1261,8 @@ iwx_firmware_store_section(struct iwx_softc *sc, enum iwx_ucode_type type,
 		return EINVAL;
 
 	fws = &sc->sc_fw.fw_sects[type];
-	DPRINTF(("%s: ucode type %d section %d\n", DEVNAME(sc), type, fws->fw_count));
+	IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+	    "%s: ucode type %d section %d\n", DEVNAME(sc), type, fws->fw_count);
 	if (fws->fw_count >= IWX_UCODE_SECT_MAX)
 		return EINVAL;
 
@@ -1580,7 +1590,9 @@ iwx_read_firmware(struct iwx_softc *sc)
 			fw->n_dest_reg = tlv_len -
 			    offsetof(struct iwx_fw_dbg_dest_tlv_v1, reg_ops);
 			fw->n_dest_reg /= sizeof(dest_v1->reg_ops[0]);
-			DPRINTF(("%s: found debug dest; n_dest_reg=%d\n", __func__, fw->n_dest_reg));
+			IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+			    "%s: found debug dest; n_dest_reg=%d\n",
+			    __func__, fw->n_dest_reg);
 			break;
 		}
 
@@ -1592,7 +1604,8 @@ iwx_read_firmware(struct iwx_softc *sc)
 			    fw->dbg_conf_tlv[conf->id] != NULL)
 				break;
 
-			DPRINTF(("Found debug configuration: %d\n", conf->id));
+			IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+			    "Found debug configuration: %d\n", conf->id);
 			fw->dbg_conf_tlv[conf->id] = conf;
 			fw->dbg_conf_tlv_len[conf->id] = tlv_len;
 			break;
