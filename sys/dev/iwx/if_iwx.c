@@ -4300,7 +4300,8 @@ iwx_run_init_mvm_ucode(struct iwx_softc *sc, int readnvm)
 		printf("%s: failed to load init firmware\n", DEVNAME(sc));
 		return err;
 	} else {
-		DPRINTF(("%s: successfully loaded init firmware\n", __func__));
+		IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+		    "%s: successfully loaded init firmware\n", __func__);
 	}
 
 	/*
