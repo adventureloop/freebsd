@@ -549,7 +549,6 @@ static int	iwx_init_hw(struct iwx_softc *);
 static int	iwx_init(struct iwx_softc *);
 //void	iwx_start(struct ifnet *);
 static void	iwx_stop(struct iwx_softc *);
-//void	iwx_watchdog(struct ifnet *);
 void iwx_watchdog(void *);
 static const char *iwx_desc_lookup(uint32_t);
 static void	iwx_nic_error(struct iwx_softc *);
@@ -9632,7 +9631,6 @@ iwx_stop(struct iwx_softc *sc)
 }
 
 void
-//iwx_watchdog(struct ifnet *ifp)
 iwx_watchdog(void *arg)
 {
 	struct iwx_softc *sc = arg;
