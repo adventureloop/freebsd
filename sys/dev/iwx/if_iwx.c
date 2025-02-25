@@ -8307,8 +8307,9 @@ iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 		uint32_t mod_type = (rate_n_flags & IWX_RATE_MCS_MOD_TYPE_MSK);
 		if (mod_type == IWX_RATE_MCS_HT_MSK) {
 			ni->ni_txrate = IWX_RATE_HT_MCS_INDEX(rate_n_flags);
-			printf("%s:%d new mcs idx: %d rate_n_flags: %x\n", __func__, __LINE__,
-			    ni->ni_txrate, rate_n_flags);
+			IWX_DPRINTF(sc, IWX_DEBUG_TXRATE,
+			    "%s:%d new MCS idx: %d rate_n_flags: %x\n",
+			    __func__, __LINE__, ni->ni_txrate, rate_n_flags);
 			return;
 		}
 	} else {
@@ -8316,7 +8317,10 @@ iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 			ni->ni_txrate = (rate_n_flags &
 			    (IWX_RATE_HT_MCS_RATE_CODE_MSK_V1 |
 			    IWX_RATE_HT_MCS_NSS_MSK_V1));
-			printf("%s:%d new mcs %d\n", __func__, __LINE__, ni->ni_txrate);
+			ni->ni_txrate = IWX_RATE_HT_MCS_INDEX(rate_n_flags);
+			IWX_DPRINTF(sc, IWX_DEBUG_TXRATE,
+			    "%s:%d new MCS idx: %d rate_n_flags: %x\n",
+			    __func__, __LINE__, ni->ni_txrate, rate_n_flags);
 			return;
 		}
 	}
@@ -8353,7 +8357,8 @@ iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 				break;
 			}
 		}
-		printf("%s:%d new rate %d\n", __func__, __LINE__, ni->ni_txrate);
+		IWX_DPRINTF(sc, IWX_DEBUG_TXRATE,
+		    "%s:%d new rate %d\n", __func__, __LINE__, ni->ni_txrate);
 	}
 }
 #endif
