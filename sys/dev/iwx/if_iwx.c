@@ -376,16 +376,9 @@ static int	iwx_mimo_enabled(struct iwx_softc *);
 static void	iwx_init_reorder_buffer(struct iwx_reorder_buffer *, uint16_t,
 	    uint16_t);
 static void	iwx_clear_reorder_buffer(struct iwx_softc *, struct iwx_rxba_data *);
-//int	iwx_ampdu_rx_start(struct ieee80211com *, struct ieee80211_node *,
-//	    uint8_t);
-//void	iwx_ampdu_rx_stop(struct ieee80211com *, struct ieee80211_node *,
-//	    uint8_t);
-//int	iwx_ampdu_tx_start(struct ieee80211com *, struct ieee80211_node *,
-//	    uint8_t);
 //void	iwx_rx_ba_session_expired(void *);
 //void	iwx_rx_bar_frame_release(struct iwx_softc *, struct iwx_rx_packet *,
 //	    struct mbuf_list *);
-//void	iwx_reorder_timer_expired(void *);
 void	iwx_sta_rx_agg(struct iwx_softc *, struct ieee80211_node *, uint8_t,
 	    uint16_t, uint16_t, int, int);
 static void	iwx_sta_tx_agg_start(struct iwx_softc *,
@@ -416,7 +409,6 @@ static void	iwx_rx_rx_phy_cmd(struct iwx_softc *, struct iwx_rx_packet *,
     struct iwx_rx_data *);
 static int	iwx_get_noise(const struct iwx_statistics_rx_non_phy *);
 static int	iwx_rx_hwdecrypt(struct iwx_softc *, struct mbuf *, uint32_t);
-//	    struct ieee80211_rxinfo *);
 //int	iwx_ccmp_decap(struct iwx_softc *, struct mbuf *,
 //	    struct ieee80211_node *, struct ieee80211_rxinfo *);
 static void	iwx_rx_frame(struct iwx_softc *, struct mbuf *, int, uint32_t,
@@ -526,8 +518,6 @@ static struct ieee80211_node * iwx_node_alloc(struct ieee80211vap *,
 //void	iwx_setkey_task(void *);
 //void	iwx_delete_key(struct ieee80211com *,
 //	    struct ieee80211_node *, struct ieee80211_key *);
-//int	iwx_media_change(struct ifnet *);
-//void	iwx_newstate_task(void *);
 static int	iwx_newstate(struct ieee80211vap *, enum ieee80211_state, int);
 static void	iwx_endscan(struct iwx_softc *);
 static void	iwx_fill_sf_command(struct iwx_softc *, struct iwx_sf_cfg_cmd *,
@@ -539,7 +529,6 @@ static int	iwx_send_update_mcc_cmd(struct iwx_softc *, const char *);
 static int	iwx_send_temp_report_ths_cmd(struct iwx_softc *);
 static int	iwx_init_hw(struct iwx_softc *);
 static int	iwx_init(struct iwx_softc *);
-//void	iwx_start(struct ifnet *);
 static void	iwx_stop(struct iwx_softc *);
 void iwx_watchdog(void *);
 static const char *iwx_desc_lookup(uint32_t);
@@ -606,18 +595,17 @@ int iwx_raw_xmit(struct ieee80211_node *, struct mbuf *,
     const struct ieee80211_bpf_params *);
 int iwx_transmit(struct ieee80211com *, struct mbuf *);
 void iwx_start(struct iwx_softc *);
-int iwx_ampdu_rx_start(struct ieee80211_node *,
-    struct ieee80211_rx_ampdu *, int, int, int);
-void iwx_ampdu_rx_stop(struct ieee80211_node *,
-    struct ieee80211_rx_ampdu *);
-int iwx_addba_request(struct ieee80211_node *,
-    struct ieee80211_tx_ampdu *, int, int, int);
-int iwx_addba_response(struct ieee80211_node *,
-    struct ieee80211_tx_ampdu *, int, int, int);
+int iwx_ampdu_rx_start(struct ieee80211_node *, struct ieee80211_rx_ampdu *,
+    int, int, int);
+void iwx_ampdu_rx_stop(struct ieee80211_node *, struct ieee80211_rx_ampdu *);
+int iwx_addba_request(struct ieee80211_node *, struct ieee80211_tx_ampdu *, int,
+    int, int);
+int iwx_addba_response(struct ieee80211_node *, struct ieee80211_tx_ampdu *,
+    int, int, int);
 void iwx_key_update_begin(struct ieee80211vap *);
 void iwx_key_update_end(struct ieee80211vap *);
 int iwx_key_alloc(struct ieee80211vap *, struct ieee80211_key *,
-	ieee80211_keyix *, ieee80211_keyix *);
+    ieee80211_keyix *,ieee80211_keyix *);
 int iwx_key_set(struct ieee80211vap *, const struct ieee80211_key *);
 int iwx_key_delete(struct ieee80211vap *, const struct ieee80211_key *);
 int iwx_suspend(device_t);
@@ -3344,69 +3332,7 @@ iwx_clear_reorder_buffer(struct iwx_softc *sc, struct iwx_rxba_data *rxba)
 //	buf = &rxba->reorder_buf;
 //	iwx_release_frames(sc, ni, rxba, buf, nssn, ml);
 //}
-//
-//void
-//iwx_reorder_timer_expired(void *arg)
-//{
-//	struct mbuf_list ml = MBUF_LIST_INITIALIZER();
-//	struct iwx_reorder_buffer *buf = arg;
-//	struct iwx_rxba_data *rxba = iwx_rxba_data_from_reorder_buf(buf);
-//	struct iwx_reorder_buf_entry *entries = &rxba->entries[0];
-//	struct iwx_softc *sc = rxba->sc;
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct ieee80211_node *ni = ic->ic_bss;
-//	int i, s;
-//	uint16_t sn = 0, index = 0;
-//	int expired = 0;
-//	int cont = 0;
-//	struct timeval now, timeout, expiry;
-//
-//	if (!buf->num_stored || buf->removed)
-//		return;
-//
-//	s = splnet();
-//	getmicrouptime(&now);
-//	USEC_TO_TIMEVAL(RX_REORDER_BUF_TIMEOUT_MQ_USEC, &timeout);
-//
-//	for (i = 0; i < buf->buf_size ; i++) {
-//		index = (buf->head_sn + i) % buf->buf_size;
-//
-//		if (ml_empty(&entries[index].frames)) {
-//			/*
-//			 * If there is a hole and the next frame didn't expire
-//			 * we want to break and not advance SN.
-//			 */
-//			cont = 0;
-//			continue;
-//		}
-//		timeradd(&entries[index].reorder_time, &timeout, &expiry);
-//		if (!cont && timercmp(&now, &expiry, <))
-//			break;
-//
-//		expired = 1;
-//		/* continue until next hole after this expired frame */
-//		cont = 1;
-//		sn = (buf->head_sn + (i + 1)) & 0xfff;
-//	}
-//
-//	if (expired) {
-//		/* SN is set to the last expired frame + 1 */
-//		iwx_release_frames(sc, ni, rxba, buf, sn, &ml);
-//		if_input(&sc->sc_ic.ic_if, &ml);
-//		ic->ic_stats.is_ht_rx_ba_window_gap_timeout++;
-//	} else {
-//		/*
-//		 * If no frame expired and there are stored frames, index is now
-//		 * pointing to the first unexpired frame - modify reorder timeout
-//		 * accordingly.
-//		 */
-//		timeout_add_usec(&buf->reorder_timer,
-//		    RX_REORDER_BUF_TIMEOUT_MQ_USEC);
-//	}
-//
-//	splx(s);
-//}
-//
+
 #define IWX_MAX_RX_BA_SESSIONS 16
 
 static struct iwx_rxba_data *
@@ -3684,82 +3610,6 @@ iwx_ba_tx_task(void *arg, int npending __unused)
 	IWX_UNLOCK(sc);
 }
 
-///*
-// * This function is called by upper layer when an ADDBA request is received
-// * from another STA and before the ADDBA response is sent.
-// */
-//int
-//iwx_ampdu_rx_start(struct ieee80211com *ic, struct ieee80211_node *ni,
-//    uint8_t tid)
-//{
-//	struct iwx_softc *sc = IC2IFP(ic)->if_softc;
-//
-//	if (sc->sc_rx_ba_sessions >= IWX_MAX_RX_BA_SESSIONS ||
-//	    tid >= IWX_MAX_TID_COUNT)
-//		return ENOSPC;
-//
-//	if (sc->ba_rx.start_tidmask & (1 << tid))
-//		return EBUSY;
-//
-//	sc->ba_rx.start_tidmask |= (1 << tid);
-//	iwx_add_task(sc, systq, &sc->ba_task);
-//
-//	return EBUSY;
-//}
-//
-///*
-// * This function is called by upper layer on teardown of an HT-immediate
-// * Block Ack agreement (eg. upon receipt of a DELBA frame).
-// */
-//void
-//iwx_ampdu_rx_stop(struct ieee80211com *ic, struct ieee80211_node *ni,
-//    uint8_t tid)
-//{
-//	struct iwx_softc *sc = IC2IFP(ic)->if_softc;
-//
-//	if (tid >= IWX_MAX_TID_COUNT || sc->ba_rx.stop_tidmask & (1 << tid))
-//		return;
-//
-//	sc->ba_rx.stop_tidmask |= (1 << tid);
-//	iwx_add_task(sc, systq, &sc->ba_task);
-//}
-//
-//int
-//iwx_ampdu_tx_start(struct ieee80211com *ic, struct ieee80211_node *ni,
-//    uint8_t tid)
-//{
-//	struct iwx_softc *sc = IC2IFP(ic)->if_softc;
-//	struct ieee80211_tx_ba *ba = &ni->ni_tx_ba[tid];
-//
-//	/*
-//	 * Require a firmware version which uses an internal AUX queue.
-//	 * The value of IWX_FIRST_AGG_TX_QUEUE would be incorrect otherwise.
-//	 */
-//	if (sc->first_data_qid != IWX_DQA_CMD_QUEUE + 1)
-//		return ENOTSUP;
-//
-//	/* Ensure we can map this TID to an aggregation queue. */
-//	if (tid >= IWX_MAX_TID_COUNT)
-//		return EINVAL;
-//
-//	/* We only support a fixed Tx aggregation window size, for now. */
-//	if (ba->ba_winsize != IWX_FRAME_LIMIT)
-//		return ENOTSUP;
-//
-//	/* Is firmware already using an agg queue with this TID? */
-//	if (sc->aggqid[tid] != 0)
-//		return ENOSPC;
-//
-//	/* Are we already processing an ADDBA request? */
-//	if (sc->ba_tx.start_tidmask & (1 << tid))
-//		return EBUSY;
-//
-//	sc->ba_tx.start_tidmask |= (1 << tid);
-//	iwx_add_task(sc, systq, &sc->ba_task);
-//
-//	return EBUSY;
-//}
-//
 static void
 iwx_set_mac_addr_from_csr(struct iwx_softc *sc, struct iwx_nvm_data *data)
 {
@@ -10832,10 +10682,6 @@ iwx_attach_hook(void *self)
 	ic->ic_vap_delete = iwx_vap_delete;
 	ic->ic_raw_xmit = iwx_raw_xmit;
 	ic->ic_node_alloc = iwx_node_alloc;
-//	sc->sc_ampdu_rx_start = ic->ic_ampdu_rx_start;
-//	ic->ic_ampdu_rx_start = iwm_ampdu_rx_start;
-//	sc->sc_ampdu_rx_stop = ic->ic_ampdu_rx_stop;
-//	ic->ic_ampdu_rx_stop = iwm_ampdu_rx_stop;
 	ic->ic_scan_start = iwx_scan_start;
 	ic->ic_scan_end = iwx_scan_end;
 	ic->ic_update_mcast = iwx_update_mcast;
