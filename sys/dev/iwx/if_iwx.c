@@ -382,7 +382,6 @@ static void	iwx_sta_tx_agg_start(struct iwx_softc *,
     struct ieee80211_node *, uint8_t);
 void	iwx_ba_rx_task(void *, int);
 void	iwx_ba_tx_task(void *, int);
-
 static void	iwx_set_mac_addr_from_csr(struct iwx_softc *, struct iwx_nvm_data *);
 static int	iwx_is_valid_mac_addr(const uint8_t *);
 static void	iwx_flip_hw_address(uint32_t, uint32_t, uint8_t *);
@@ -3322,65 +3321,6 @@ iwx_sta_rx_agg_baid_cfg_cmd(struct iwx_softc *sc, struct ieee80211_node *ni,
 	return 0;
 }
 
-//int
-//iwx_sta_rx_agg_sta_cmd(struct iwx_softc *sc, struct ieee80211_node *ni,
-//    uint8_t tid, uint16_t ssn, uint16_t winsize, int timeout_val, int start,
-//    uint8_t *baid)
-//{
-//	struct iwx_add_sta_cmd cmd;
-//	struct iwx_node *in = (void *)ni;
-//	int err;
-//	uint32_t status;
-//
-//	splassert(IPL_NET);
-//
-//	memset(&cmd, 0, sizeof(cmd));
-//
-//	cmd.sta_id = IWX_STATION_ID;
-//	cmd.mac_id_n_color
-//	    = htole32(IWX_FW_CMD_ID_AND_COLOR(in->in_id, in->in_color));
-//	cmd.add_modify = IWX_STA_MODE_MODIFY;
-//
-//	if (start) {
-//		cmd.add_immediate_ba_tid = (uint8_t)tid;
-//		cmd.add_immediate_ba_ssn = htole16(ssn);
-//		cmd.rx_ba_window = htole16(winsize);
-//	} else {
-//		struct iwx_rxba_data *rxba;
-//
-//		rxba = iwx_find_rxba_data(sc, tid);
-//		if (rxba == NULL)
-//			return ENOENT;
-//		*baid = rxba->baid;
-//
-//		cmd.remove_immediate_ba_tid = (uint8_t)tid;
-//	}
-//	cmd.modify_mask = start ? IWX_STA_MODIFY_ADD_BA_TID :
-//	    IWX_STA_MODIFY_REMOVE_BA_TID;
-//
-//	status = IWX_ADD_STA_SUCCESS;
-//	err = iwx_send_cmd_pdu_status(sc, IWX_ADD_STA, sizeof(cmd), &cmd,
-//	    &status);
-//	if (err)
-//		return err;
-//
-//	if ((status & IWX_ADD_STA_STATUS_MASK) != IWX_ADD_STA_SUCCESS)
-//		return EIO;
-//
-//	if (!(status & IWX_ADD_STA_BAID_VALID_MASK))
-//		return EINVAL;
-//
-//	if (start) {
-//		*baid = (status & IWX_ADD_STA_BAID_MASK) >>
-//		    IWX_ADD_STA_BAID_SHIFT;
-//		if (*baid == IWX_RX_REORDER_DATA_INVALID_BAID ||
-//		    *baid >= nitems(sc->sc_rxba_data))
-//			return ERANGE;
-//	}
-//
-//	return 0;
-//}
-
 void
 iwx_sta_rx_agg(struct iwx_softc *sc, struct ieee80211_node *ni, uint8_t tid,
     uint16_t ssn, uint16_t winsize, int timeout_val, int start)
@@ -3400,10 +3340,10 @@ iwx_sta_rx_agg(struct iwx_softc *sc, struct ieee80211_node *ni, uint8_t tid,
 		panic("sta_rx_agg unsupported hw");
 	}
 	if (err) {
-		DPRINTF(("%s: iwx_sta_rx_agg_sta_cmd err=%i\n", __func__, err));
+		DPRINTF(("%s: iwx_sta_rx_agg_sta err=%i\n", __func__, err));
 		return;
 	} else
-		DPRINTF(("%s: iwx_sta_rx_agg_sta_cmd success\n", __func__));
+		DPRINTF(("%s: iwx_sta_rx_agg_sta success\n", __func__));
 
 	rxba = &sc->sc_rxba_data[baid];
 
