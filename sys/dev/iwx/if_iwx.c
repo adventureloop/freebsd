@@ -376,9 +376,6 @@ static int	iwx_mimo_enabled(struct iwx_softc *);
 static void	iwx_init_reorder_buffer(struct iwx_reorder_buffer *, uint16_t,
 	    uint16_t);
 static void	iwx_clear_reorder_buffer(struct iwx_softc *, struct iwx_rxba_data *);
-//void	iwx_rx_ba_session_expired(void *);
-//void	iwx_rx_bar_frame_release(struct iwx_softc *, struct iwx_rx_packet *,
-//	    struct mbuf_list *);
 void	iwx_sta_rx_agg(struct iwx_softc *, struct ieee80211_node *, uint8_t,
 	    uint16_t, uint16_t, int, int);
 static void	iwx_sta_tx_agg_start(struct iwx_softc *,
@@ -3255,71 +3252,6 @@ iwx_clear_reorder_buffer(struct iwx_softc *sc, struct iwx_rxba_data *rxba)
 	reorder_buf->removed = 1;
 	rxba->baid = IWX_RX_REORDER_DATA_INVALID_BAID;
 }
-
-//#define RX_REORDER_BUF_TIMEOUT_MQ_USEC (100000ULL)
-//
-//void
-//iwx_rx_ba_session_expired(void *arg)
-//{
-//	struct iwx_rxba_data *rxba = arg;
-//	struct iwx_softc *sc = rxba->sc;
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct ieee80211_node *ni = ic->ic_bss;
-//	struct timeval now, timeout, expiry;
-//	int s;
-//
-//	s = splnet();
-//	if ((sc->sc_flags & IWX_FLAG_SHUTDOWN) == 0 &&
-//	    ic->ic_state == IEEE80211_S_RUN &&
-//	    rxba->baid != IWX_RX_REORDER_DATA_INVALID_BAID) {
-//		getmicrouptime(&now);
-//		USEC_TO_TIMEVAL(RX_REORDER_BUF_TIMEOUT_MQ_USEC, &timeout);
-//		timeradd(&rxba->last_rx, &timeout, &expiry);
-//		if (timercmp(&now, &expiry, <)) {
-//			timeout_add_usec(&rxba->session_timer, rxba->timeout);
-//		} else {
-//			ic->ic_stats.is_ht_rx_ba_timeout++;
-//			ieee80211_delba_request(ic, ni,
-//			    IEEE80211_REASON_TIMEOUT, 0, rxba->tid);
-//		}
-//	}
-//	splx(s);
-//}
-//
-//void
-//iwx_rx_bar_frame_release(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
-//    struct mbuf_list *ml)
-//{
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct ieee80211_node *ni = ic->ic_bss;
-//	struct iwx_bar_frame_release *release = (void *)pkt->data;
-//	struct iwx_reorder_buffer *buf;
-//	struct iwx_rxba_data *rxba;
-//	unsigned int baid, nssn, sta_id, tid;
-//
-//	if (iwx_rx_packet_payload_len(pkt) < sizeof(*release))
-//		return;
-//
-//	baid = (le32toh(release->ba_info) & IWX_BAR_FRAME_RELEASE_BAID_MASK) >>
-//	    IWX_BAR_FRAME_RELEASE_BAID_SHIFT;
-//	if (baid == IWX_RX_REORDER_DATA_INVALID_BAID ||
-//	    baid >= nitems(sc->sc_rxba_data))
-//		return;
-//
-//	rxba = &sc->sc_rxba_data[baid];
-//	if (rxba->baid == IWX_RX_REORDER_DATA_INVALID_BAID)
-//		return;
-//
-//	tid = le32toh(release->sta_tid) & IWX_BAR_FRAME_RELEASE_TID_MASK;
-//	sta_id = (le32toh(release->sta_tid) &
-//	    IWX_BAR_FRAME_RELEASE_STA_MASK) >> IWX_BAR_FRAME_RELEASE_STA_SHIFT;
-//	if (tid != rxba->tid || rxba->sta_id != IWX_STATION_ID)
-//		return;
-//
-//	nssn = le32toh(release->ba_info) & IWX_BAR_FRAME_RELEASE_NSSN_MASK;
-//	buf = &rxba->reorder_buf;
-//	iwx_release_frames(sc, ni, rxba, buf, nssn, ml);
-//}
 
 #define IWX_MAX_RX_BA_SESSIONS 16
 
