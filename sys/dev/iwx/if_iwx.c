@@ -5135,6 +5135,7 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 //			m_freem(m);
 //			return;
 //		}
+//
 //	} else if (len < sizeof(struct ieee80211_frame)) {
 //		ic->ic_stats.is_rx_tooshort++;
 //		IC2IFP(ic)->if_ierrors++;
@@ -6704,8 +6705,8 @@ iwx_power_build_cmd(struct iwx_softc *sc, struct iwx_node *in,
 	keep_alive = roundup(keep_alive, 1000) / 1000;
 	cmd->keep_alive_seconds = htole16(keep_alive);
 
-//	if (ic->ic_opmode != IEEE80211_M_MONITOR)
-//		cmd->flags = htole16(IWX_POWER_FLAGS_POWER_SAVE_ENA_MSK);
+	if (ic->ic_opmode != IEEE80211_M_MONITOR)
+		cmd->flags = htole16(IWX_POWER_FLAGS_POWER_SAVE_ENA_MSK);
 }
 
 static int
@@ -6733,10 +6734,9 @@ static int
 iwx_power_update_device(struct iwx_softc *sc)
 {
 	struct iwx_device_power_cmd cmd = { };
-//	struct ieee80211com *ic = &sc->sc_ic;
+	struct ieee80211com *ic = &sc->sc_ic;
 
-	//TODO
-//	if (ic->ic_opmode != IEEE80211_M_MONITOR)
+	if (ic->ic_opmode != IEEE80211_M_MONITOR)
 		cmd.flags = htole16(IWX_DEVICE_POWER_FLAGS_POWER_SAVE_ENA_MSK);
 
 	return iwx_send_cmd_pdu(sc,
@@ -8260,12 +8260,11 @@ iwx_auth(struct ieee80211vap *vap, struct iwx_softc *sc)
 	in = IWX_NODE(ni);
 
 	if (ic->ic_opmode == IEEE80211_M_MONITOR) {
-//		err = iwx_phy_ctxt_update(sc, &sc->sc_phyctxt[0],
-//		    ic->ic_ibss_chan, 1, 1, 0, IEEE80211_HTOP0_SCO_SCN,
-//		    IEEE80211_VHTOP0_CHAN_WIDTH_HT);
-//		if (err)
-//			return err;
-		panic("%s: monitor mode", __func__);
+		err = iwx_phy_ctxt_update(sc, &sc->sc_phyctxt[0],
+		    ic->ic_bsschan, 1, 1, 0, IEEE80211_HTOP0_SCO_SCN,
+		    IEEE80211_VHTOP0_CHAN_WIDTH_HT);
+		if (err)
+			return err;
 	} else {
 		err = iwx_phy_ctxt_update(sc, &sc->sc_phyctxt[0],
 		    in->in_ni.ni_chan, 1, 1, 0, IEEE80211_HTOP0_SCO_SCN,
@@ -8303,15 +8302,15 @@ iwx_auth(struct ieee80211vap *vap, struct iwx_softc *sc)
 	}
 	sc->sc_flags |= IWX_FLAG_STA_ACTIVE;
 
-//	if (ic->ic_opmode == IEEE80211_M_MONITOR) {
-//		err = iwx_enable_txq(sc, IWX_MONITOR_STA_ID,
-//		    IWX_DQA_INJECT_MONITOR_QUEUE, IWX_MGMT_TID,
-//		    IWX_TX_RING_COUNT);
-//		if (err)
-//			goto rm_sta;
-//		return 0;
-//	}
-//
+	if (ic->ic_opmode == IEEE80211_M_MONITOR) {
+		err = iwx_enable_txq(sc, IWX_MONITOR_STA_ID,
+		    IWX_DQA_INJECT_MONITOR_QUEUE, IWX_MGMT_TID,
+		    IWX_TX_RING_COUNT);
+		if (err)
+			goto rm_sta;
+		return 0;
+	}
+
 	err = iwx_enable_mgmt_queue(sc);
 	if (err)
 		goto rm_sta;
@@ -8406,6 +8405,7 @@ iwx_deauth(struct iwx_softc *sc)
 static int
 iwx_run(struct ieee80211vap *vap, struct iwx_softc *sc)
 {
+	struct ieee80211com *ic = &sc->sc_ic;
 	struct iwx_node *in = IWX_NODE(vap->iv_bss);
 	struct ieee80211_node *ni = &in->in_ni;
 	struct iwx_vap *ivp = IWX_VAP(vap);
@@ -8486,9 +8486,8 @@ iwx_run(struct ieee80211vap *vap, struct iwx_softc *sc)
 		return err;
 	}
 
-//	if (ic->ic_opmode == IEEE80211_M_MONITOR)
-//		return 0;
-//
+	if (ic->ic_opmode == IEEE80211_M_MONITOR)
+		return 0;
 
 	err = iwx_rs_init(sc, in);
 	if (err) {
@@ -11299,6 +11298,7 @@ iwx_attach(device_t dev)
 	/* Set device capabilities. */
 	ic->ic_caps =
 	    IEEE80211_C_STA |
+	    IEEE80211_C_MONITOR |
 	    IEEE80211_C_WPA |		/* WPA/RSN */
 	    IEEE80211_C_WME |
 	    IEEE80211_C_PMGT |
