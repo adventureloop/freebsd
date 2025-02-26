@@ -496,15 +496,8 @@ static void	iwx_mac_ctxt_cmd_fill_sta(struct iwx_softc *, struct iwx_node *,
 static int	iwx_mac_ctxt_cmd(struct iwx_softc *, struct iwx_node *,
     uint32_t, int);
 static int	iwx_clear_statistics(struct iwx_softc *);
-//void	iwx_add_task(struct iwx_softc *, struct taskq *, struct task *);
-//void	iwx_del_task(struct iwx_softc *, struct taskq *, struct task *);
 static int	iwx_scan(struct iwx_softc *);
 static int	iwx_bgscan(struct ieee80211com *);
-//void	iwx_bgscan_done(struct ieee80211com *,
-//	    struct ieee80211_node_switch_bss_arg *, size_t);
-//void	iwx_bgscan_done_task(void *);
-//int	iwx_umac_scan_abort(struct iwx_softc *);
-//int	iwx_scan_abort(struct iwx_softc *);
 static int	iwx_enable_mgmt_queue(struct iwx_softc *);
 static int	iwx_disable_mgmt_queue(struct iwx_softc *);
 static int	iwx_rs_rval2idx(uint8_t);
