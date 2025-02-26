@@ -139,9 +139,8 @@
 #include <dev/pci/pcireg.h>
 #include <dev/pci/pcivar.h>
 
-//#if NBPFILTER > 0
-//#include <net/bpf.h>
-//#endif
+#include <net/bpf.h>
+
 #include <net/if.h>
 #include <net/if_var.h>
 #include <net/if_dl.h>
@@ -421,7 +420,7 @@ static int	iwx_rx_hwdecrypt(struct iwx_softc *, struct mbuf *, uint32_t);
 //int	iwx_ccmp_decap(struct iwx_softc *, struct mbuf *,
 //	    struct ieee80211_node *, struct ieee80211_rxinfo *);
 static void	iwx_rx_frame(struct iwx_softc *, struct mbuf *, int, uint32_t,
-    int, int, uint32_t);
+    int, int, uint32_t, uint8_t);
 static void	iwx_clear_tx_desc(struct iwx_softc *, struct iwx_tx_ring *, int);
 static void	iwx_txd_done(struct iwx_softc *, struct iwx_tx_ring *,
     struct iwx_tx_data *);
@@ -631,6 +630,7 @@ int iwx_key_set(struct ieee80211vap *, const struct ieee80211_key *);
 int iwx_key_delete(struct ieee80211vap *, const struct ieee80211_key *);
 int iwx_suspend(device_t);
 int iwx_resume(device_t);
+static void iwx_radiotap_attach(struct iwx_softc *);
 
 /* OpenBSD compat defines */
 #define IEEE80211_HTOP0_SCO_SCN 0
@@ -4584,9 +4584,10 @@ iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status)
 void
 iwx_rx_frame(struct iwx_softc *sc, struct mbuf *m, int chanidx,
     uint32_t rx_pkt_status, int is_shortpre, int rate_n_flags,
-    uint32_t device_timestamp)
+    uint32_t device_timestamp, uint8_t rssi)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
+	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 	struct ieee80211_frame *wh;
 	struct ieee80211_node *ni;
 
@@ -4627,9 +4628,7 @@ printf("%s:%d if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);\n", __func__, __LINE__)
 		return;
 	}
 #endif
-#if 0
-#if NBPFILTER > 0
-	if (sc->sc_drvbpf != NULL) {
+	if (ieee80211_radiotap_active_vap(vap)) {
 		struct iwx_rx_radiotap_header *tap = &sc->sc_rxtap;
 		uint16_t chan_flags;
 		int have_legacy_rate = 1;
@@ -4653,9 +4652,10 @@ printf("%s:%d if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);\n", __func__, __LINE__)
 		chan_flags &= ~IEEE80211_CHAN_HT;
 #endif
 		tap->wr_chan_flags = htole16(chan_flags);
-		tap->wr_dbm_antsignal = (int8_t)rxi->rxi_rssi;
+		tap->wr_dbm_antsignal = rssi;
 		tap->wr_dbm_antnoise = (int8_t)sc->sc_noise;
 		tap->wr_tsft = device_timestamp;
+
 		if (sc->sc_rate_n_flags_version >= 2) {
 			uint32_t mod_type = (rate_n_flags &
 			    IWX_RATE_MCS_MOD_TYPE_MSK);
@@ -4704,13 +4704,10 @@ printf("%s:%d if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);\n", __func__, __LINE__)
 			/* Unknown rate: should not happen. */
 			default:  tap->wr_rate =   0;
 			}
+			// XXX hack - this needs rebased with the new rate stuff anyway
+			tap->wr_rate = rate;
 		}
-
-		bpf_mtap_hdr(sc->sc_drvbpf, tap, sc->sc_rxtap_len,
-		    m, BPF_DIRECTION_IN);
 	}
-#endif
-#endif
 
 	IWX_UNLOCK(sc);
 	if (ni == NULL) {
@@ -5326,7 +5323,7 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 
 	iwx_rx_frame(sc, m, chanidx, le16toh(desc->status),
 	    (phy_info & IWX_RX_MPDU_PHY_SHORT_PREAMBLE),
-	    rate_n_flags, device_timestamp);
+	    rate_n_flags, device_timestamp, rssi);
 }
 
 static void
@@ -6290,6 +6287,8 @@ iwx_tx_update_byte_tbl(struct iwx_softc *sc, struct iwx_tx_ring *txq,
 static int
 iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 {
+	struct ieee80211com *ic = &sc->sc_ic;
+	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 	struct iwx_node *in = (void *)ni;
 	struct iwx_tx_ring *ring;
 	struct iwx_tx_data *data;
@@ -6350,43 +6349,23 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 	cmd->hdr.qid = ring->qid;
 	cmd->hdr.idx = ring->cur;
 
-//	rinfo = iwx_tx_fill_cmd(sc, in, wh, &flags, &rate_n_flags);
+//	rinfo = iwx_tx_fill_cmd(sc, in, wh, &flags, &rate_n_flags);	// XXX-THJ look at this
 	rinfo = iwx_tx_fill_cmd(sc, in, wh, &flags, &rate_n_flags, m);
 	if (rinfo == NULL)
 		return EINVAL;
 
-//#if NBPFILTER > 0
-//	if (sc->sc_drvbpf != NULL) {
-//		struct iwx_tx_radiotap_header *tap = &sc->sc_txtap;
-//		uint16_t chan_flags;
-//
-//		tap->wt_flags = 0;
-//		tap->wt_chan_freq = htole16(ni->ni_chan->ic_freq);
-//		chan_flags = ni->ni_chan->ic_flags;
-//		if (ic->ic_curmode != IEEE80211_MODE_11N &&
-//		    ic->ic_curmode != IEEE80211_MODE_11AC) {
-//			chan_flags &= ~IEEE80211_CHAN_HT;
-//			chan_flags &= ~IEEE80211_CHAN_40MHZ;
-//		}
-//		if (ic->ic_curmode != IEEE80211_MODE_11AC)
-//			chan_flags &= ~IEEE80211_CHAN_VHT;
-//		tap->wt_chan_flags = htole16(chan_flags);
-//		if ((ni->ni_flags & IEEE80211_NODE_HT) &&
-//		    !IEEE80211_IS_MULTICAST(wh->i_addr1) &&
-//		    type == IEEE80211_FC0_TYPE_DATA &&
-//		    rinfo->ht_plcp != IWX_RATE_HT_SISO_MCS_INV_PLCP) {
-//			tap->wt_rate = (0x80 | rinfo->ht_plcp);
-//		} else
-//			tap->wt_rate = rinfo->rate;
-//		if ((ic->ic_flags & IEEE80211_F_WEPON) &&
-//		    (wh->i_fc[1] & IEEE80211_FC1_PROTECTED))
-//			tap->wt_flags |= IEEE80211_RADIOTAP_F_WEP;
-//
-//		bpf_mtap_hdr(sc->sc_drvbpf, tap, sc->sc_txtap_len,
-//		    m, BPF_DIRECTION_OUT);
-//	}
-//#endif
-//
+	if (ieee80211_radiotap_active_vap(vap)) {
+		struct iwx_tx_radiotap_header *tap = &sc->sc_txtap;
+
+		tap->wt_flags = 0;
+		tap->wt_chan_freq = htole16(ni->ni_chan->ic_freq);
+		tap->wt_chan_flags = htole16(ni->ni_chan->ic_flags);
+		tap->wt_rate = rinfo->rate;
+		if (k != NULL)
+			tap->wt_flags |= IEEE80211_RADIOTAP_F_WEP;
+		ieee80211_radiotap_tx(vap, m);
+	}
+
 //	if (wh->i_fc[1] & IEEE80211_FC1_PROTECTED) {
 //                k = ieee80211_get_txkey(ic, wh, ni);
 //		if (k->k_cipher != IEEE80211_CIPHER_CCMP) {
@@ -11114,7 +11093,7 @@ iwx_attach_hook(void *self)
 	sc->sc_addba_response = ic->ic_addba_response;
 	ic->ic_addba_response = iwx_addba_response;
 
-//	iwm_radiotap_attach(sc);
+	iwx_radiotap_attach(sc);
 	ieee80211_announce(ic);
 out:
 	config_intrhook_disestablish(&sc->sc_preinit_hook);
@@ -11660,23 +11639,24 @@ iwx_detach(device_t dev)
 	return (0);
 }
 
-//#if NBPFILTER > 0
-//void
-//iwx_radiotap_attach(struct iwx_softc *sc)
-//{
-//	bpfattach(&sc->sc_drvbpf, &sc->sc_ic.ic_if, DLT_IEEE802_11_RADIO,
-//	    sizeof (struct ieee80211_frame) + IEEE80211_RADIOTAP_HDRLEN);
-//
-//	sc->sc_rxtap_len = sizeof sc->sc_rxtapu;
-//	sc->sc_rxtap.wr_ihdr.it_len = htole16(sc->sc_rxtap_len);
-//	sc->sc_rxtap.wr_ihdr.it_present = htole32(IWX_RX_RADIOTAP_PRESENT);
-//
-//	sc->sc_txtap_len = sizeof sc->sc_txtapu;
-//	sc->sc_txtap.wt_ihdr.it_len = htole16(sc->sc_txtap_len);
-//	sc->sc_txtap.wt_ihdr.it_present = htole32(IWX_TX_RADIOTAP_PRESENT);
-//}
-//#endif
-//
+static void
+iwx_radiotap_attach(struct iwx_softc *sc)
+{
+	struct ieee80211com *ic = &sc->sc_ic;
+
+	IWX_DPRINTF(sc, IWX_DEBUG_RESET | IWX_DEBUG_TRACE,
+	    "->%s begin\n", __func__);
+
+	ieee80211_radiotap_attach(ic,
+	    &sc->sc_txtap.wt_ihdr, sizeof(sc->sc_txtap),
+		IWX_TX_RADIOTAP_PRESENT,
+	    &sc->sc_rxtap.wr_ihdr, sizeof(sc->sc_rxtap),
+		IWX_RX_RADIOTAP_PRESENT);
+
+	IWX_DPRINTF(sc, IWX_DEBUG_RESET | IWX_DEBUG_TRACE,
+	    "->%s end\n", __func__);
+}
+
 //void
 //iwx_init_task(void *arg1)
 //{
