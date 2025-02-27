@@ -9336,15 +9336,15 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 			break;
 		}
 
-//		case IWX_REPLY_ERROR: {
-//			struct iwx_error_resp *resp;
-//			SYNC_RESP_STRUCT(resp, pkt);
-//			printf("%s: firmware error 0x%x, cmd 0x%x\n",
-//				DEVNAME(sc), le32toh(resp->error_type),
-//				resp->cmd_id);
-//			break;
-//		}
-//
+		case IWX_REPLY_ERROR: {
+			struct iwx_error_resp *resp;
+			SYNC_RESP_STRUCT(resp, pkt);
+			printf("%s: firmware error 0x%x, cmd 0x%x\n",
+				DEVNAME(sc), le32toh(resp->error_type),
+				resp->cmd_id);
+			break;
+		}
+
 //		case IWX_TIME_EVENT_NOTIFICATION: {
 //			struct iwx_time_event_notif *notif;
 //			uint32_t action;
