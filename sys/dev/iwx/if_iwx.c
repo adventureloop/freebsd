@@ -6699,15 +6699,6 @@ iwx_umac_scan_v14(struct iwx_softc *sc, int bgscan)
 		return err;
 	}
 
-//	if (ic->ic_des_esslen != 0) {
-//		scan_p->probe_params.direct_scan[0].id = IEEE80211_ELEMID_SSID;
-//		scan_p->probe_params.direct_scan[0].len = ic->ic_des_esslen;
-//		memcpy(scan_p->probe_params.direct_scan[0].ssid,
-//		    ic->ic_des_essid, ic->ic_des_esslen);
-//		bitmap_ssid |= (1 << 0);
-//		n_ssid = 1;
-//	}
-
 	for (int i=0; i < ss->ss_nssid; i++) {
 		scan_p->probe_params.direct_scan[i].id = IEEE80211_ELEMID_SSID;
 		scan_p->probe_params.direct_scan[i].len =
