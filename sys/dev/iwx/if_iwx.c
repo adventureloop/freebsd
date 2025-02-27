@@ -5154,8 +5154,6 @@ iwx_send_cmd(struct iwx_softc *sc, struct iwx_host_cmd *hcmd)
 		sc->sc_cmd_resp_pkt[idx] = NULL;
 	}
 
-//	s = splnet();
-//
 	desc = &ring->desc[idx];
 	txdata = &ring->data[idx];
 
