@@ -4959,8 +4959,6 @@ iwx_phy_ctxt_cmd_uhb_v3_v4(struct iwx_softc *sc, struct iwx_phy_ctxt *ctxt,
 
 	cmd.ci.band = IEEE80211_IS_CHAN_2GHZ(chan) ?
 	    IWX_PHY_BAND_24 : IWX_PHY_BAND_5;
-//	cmd.ci.band = IWX_PHY_BAND_24;
-//	cmd.ci.channel = htole32(1);
 	cmd.ci.channel = htole32(ieee80211_chan2ieee(ic, chan));
 
 //	if (vht_chan_width == IEEE80211_VHTOP0_CHAN_WIDTH_80) {
