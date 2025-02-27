@@ -8652,8 +8652,6 @@ iwx_watchdog(void *arg)
 				iwx_nic_error(sc);
 				iwx_dump_driver_status(sc);
 				ieee80211_restart_all(ic);
-//				if ((sc->sc_flags & IWX_FLAG_SHUTDOWN) == 0)
-//					task_add(systq, &sc->init_task);
 //				ifp->if_oerrors++;
 				return;
 			}
@@ -9599,23 +9597,17 @@ iwx_intr_msix(void *arg)
 			iwx_dump_driver_status(sc);
 		}
 		printf("%s: fatal firmware error\n", DEVNAME(sc));
-//		if ((sc->sc_flags & IWX_FLAG_SHUTDOWN) == 0)
-//			task_add(systq, &sc->init_task);
 		ieee80211_restart_all(ic);
 		goto out;
 	}
 
 	if (inta_hw & IWX_MSIX_HW_INT_CAUSES_REG_RF_KILL) {
 		iwx_check_rfkill(sc);
-//		task_add(systq, &sc->init_task);
 	}
 
 	if (inta_hw & IWX_MSIX_HW_INT_CAUSES_REG_HW_ERR) {
 		printf("%s: hardware error, stopping device \n", DEVNAME(sc));
-//		if ((sc->sc_flags & IWX_FLAG_SHUTDOWN) == 0) {
-//			sc->sc_flags |= IWX_FLAG_HW_ERR;
-//			task_add(systq, &sc->init_task);
-//		}
+		sc->sc_flags |= IWX_FLAG_HW_ERR;
 		iwx_stop(sc);
 		goto out;
 	}
