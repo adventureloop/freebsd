@@ -2022,7 +2022,7 @@ iwx_alloc_rx_ring(struct iwx_softc *sc, struct iwx_rx_ring *ring)
 	}
 	return 0;
 
-fail:	//iwx_free_rx_ring(sc, ring);
+fail:	iwx_free_rx_ring(sc, ring);
 	return err;
 }
 
@@ -10592,11 +10592,11 @@ iwx_attach(device_t dev)
 	return (0);
 
 fail4:
-//	while (--txq_i >= 0)
-//		iwx_free_tx_ring(sc, &sc->txq[txq_i]);
-//	iwx_free_rx_ring(sc, &sc->rxq);
-//	if (sc->ict_dma.vaddr != NULL)
-//		iwx_dma_contig_free(&sc->ict_dma);
+	while (--txq_i >= 0)
+		iwx_free_tx_ring(sc, &sc->txq[txq_i]);
+	iwx_free_rx_ring(sc, &sc->rxq);
+	if (sc->ict_dma.vaddr != NULL)
+		iwx_dma_contig_free(&sc->ict_dma);
 
 fail1:
 	iwx_dma_contig_free(&sc->ctxt_info_dma);
