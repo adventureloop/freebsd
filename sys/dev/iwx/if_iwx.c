@@ -396,8 +396,8 @@ static int	iwx_load_ucode_wait_alive(struct iwx_softc *);
 static int	iwx_send_dqa_cmd(struct iwx_softc *);
 static int	iwx_run_init_mvm_ucode(struct iwx_softc *, int);
 static int	iwx_config_ltr(struct iwx_softc *);
-static void iwx_update_rx_desc(struct iwx_softc *, struct iwx_rx_ring *, int, bus_dma_segment_t *);
-static int iwx_rx_addbuf(struct iwx_softc *, int, int);
+static void 	iwx_update_rx_desc(struct iwx_softc *, struct iwx_rx_ring *, int, bus_dma_segment_t *);
+static int 	iwx_rx_addbuf(struct iwx_softc *, int, int);
 static int	iwx_rxmq_get_signal_strength(struct iwx_softc *, struct iwx_rx_mpdu_desc *);
 static void	iwx_rx_rx_phy_cmd(struct iwx_softc *, struct iwx_rx_packet *,
     struct iwx_rx_data *);
@@ -9613,13 +9613,18 @@ iwx_intr_msix(void *arg)
 	}
 
 	if (inta_hw & IWX_MSIX_HW_INT_CAUSES_REG_ALIVE) {
-		DPRINTF(("%s: WARNING: UNHANDLED BRACH\n", __func__));
-//		int i;
-
+		printf("%s:%d WARNING: Skipping rx desc update\n",
+		    __func__, __LINE__);
+#if 0
+		/*
+		 * XXX-THJ: we don't have the dma segment handy. This is hacked
+		 * out in the fc release, return to it if we ever get this
+		 * warning.
+		 */
 		/* Firmware has now configured the RFH. */
-		//XXX:misha
-//		for (i = 0; i < IWX_RX_MQ_RING_COUNT; i++)
-//			iwx_update_rx_desc(sc, &sc->rxq, i);
+		for (int i = 0; i < IWX_RX_MQ_RING_COUNT; i++)
+			iwx_update_rx_desc(sc, &sc->rxq, i);
+#endif
 		IWX_WRITE(sc, IWX_RFH_Q0_FRBDCB_WIDX_TRG, 8);
 	}
 
