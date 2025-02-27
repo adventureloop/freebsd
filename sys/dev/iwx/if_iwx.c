@@ -9375,10 +9375,10 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 			break;
 		}
 
-//		case IWX_WIDE_ID(IWX_SYSTEM_GROUP,
-//		    IWX_FSEQ_VER_MISMATCH_NOTIFICATION):
-//		    break;
-//
+		case IWX_WIDE_ID(IWX_SYSTEM_GROUP,
+		    IWX_FSEQ_VER_MISMATCH_NOTIFICATION):
+		    break;
+
 		/*
 		 * Firmware versions 21 and 22 generate some DEBUG_LOG_MSG
 		 * messages. Just ignore them for now.
@@ -9389,9 +9389,9 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 		case IWX_MCAST_FILTER_CMD:
 			break;
 
-//		case IWX_WIDE_ID(IWX_DATA_PATH_GROUP, IWX_DQA_ENABLE_CMD):
-//			break;
-//
+		case IWX_WIDE_ID(IWX_DATA_PATH_GROUP, IWX_DQA_ENABLE_CMD):
+			break;
+
 		case IWX_WIDE_ID(IWX_SYSTEM_GROUP, IWX_SOC_CONFIGURATION_CMD):
 			break;
 
