@@ -8576,75 +8576,21 @@ iwx_init(struct iwx_softc *sc)
 	return 0;
 }
 
-//void
-//iwx_start(struct ifnet *ifp)
-//{
-//	struct iwx_softc *sc = ifp->if_softc;
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct ieee80211_node *ni;
-//	struct ether_header *eh;
-//	struct mbuf *m;
-//
-//	if (!(ifp->if_flags & IFF_RUNNING) || ifq_is_oactive(&ifp->if_snd))
-//		return;
-//
-//	for (;;) {
-//		/* why isn't this done per-queue? */
-//		if (sc->qfullmsk != 0) {
-//			ifq_set_oactive(&ifp->if_snd);
-//			break;
-//		}
-//
-//		/* Don't queue additional frames while flushing Tx queues. */
-//		if (sc->sc_flags & IWX_FLAG_TXFLUSH)
-//			break;
-//
-//		/* need to send management frames even if we're not RUNning */
-//		m = mq_dequeue(&ic->ic_mgtq);
-//		if (m) {
-//			ni = m->m_pkthdr.ph_cookie;
-//			goto sendit;
-//		}
-//
-//		if (ic->ic_state != IEEE80211_S_RUN ||
-//		    (ic->ic_xflags & IEEE80211_F_TX_MGMT_ONLY))
-//			break;
-//
-//		m = ifq_dequeue(&ifp->if_snd);
-//		if (!m)
-//			break;
-//		if (m->m_len < sizeof (*eh) &&
-//		    (m = m_pullup(m, sizeof (*eh))) == NULL) {
-//			ifp->if_oerrors++;
-//			continue;
-//		}
-//#if NBPFILTER > 0
-//		if (ifp->if_bpf != NULL)
-//			bpf_mtap(ifp->if_bpf, m, BPF_DIRECTION_OUT);
-//#endif
-//		if ((m = ieee80211_encap(ifp, m, &ni)) == NULL) {
-//			ifp->if_oerrors++;
-//			continue;
-//		}
-//
-// sendit:
-//#if NBPFILTER > 0
-//		if (ic->ic_rawbpf != NULL)
-//			bpf_mtap(ic->ic_rawbpf, m, BPF_DIRECTION_OUT);
-//#endif
-//		if (iwx_tx(sc, m, ni) != 0) {
-//			ieee80211_release_node(ic, ni);
-//			ifp->if_oerrors++;
-//			continue;
-//		}
-//
-//		if (ifp->if_flags & IFF_UP)
-//			ifp->if_timer = 1;
-//	}
-//
-//	return;
-//}
-//
+static void
+iwx_start(struct iwx_softc *sc)
+{
+        struct ieee80211_node *ni;
+        struct mbuf *m;
+
+        while (sc->qfullmsk == 0 && (m = mbufq_dequeue(&sc->sc_snd)) != NULL) {
+                ni = (struct ieee80211_node *)m->m_pkthdr.rcvif;
+                if (iwx_tx(sc, m, ni) != 0) {
+                      if_inc_counter(ni->ni_vap->iv_ifp, IFCOUNTER_OERRORS, 1);
+                        continue;
+                }
+        }
+}
+
 static void
 iwx_stop(struct iwx_softc *sc)
 {
@@ -11119,21 +11065,6 @@ static int
 iwx_key_delete(struct ieee80211vap *vap, const struct ieee80211_key *k)
 {
 	return 1;
-}
-
-static void
-iwx_start(struct iwx_softc *sc)
-{
-        struct ieee80211_node *ni;
-        struct mbuf *m;
-
-        while (sc->qfullmsk == 0 && (m = mbufq_dequeue(&sc->sc_snd)) != NULL) {
-                ni = (struct ieee80211_node *)m->m_pkthdr.rcvif;
-                if (iwx_tx(sc, m, ni) != 0) {
-                      if_inc_counter(ni->ni_vap->iv_ifp, IFCOUNTER_OERRORS, 1);
-                        continue;
-                }
-        }
 }
 
 static device_method_t iwx_pci_methods[] = {
