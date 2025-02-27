@@ -8608,11 +8608,9 @@ iwx_stop(struct iwx_softc *sc)
 //		sc->sc_cmd_resp_pkt[i] = NULL;
 //		sc->sc_cmd_resp_len[i] = 0;
 //	}
-//	ifp->if_flags &= ~IFF_RUNNING;
 //	ifq_clr_oactive(&ifp->if_snd);
 //
 	ivp->phy_ctxt = NULL;
-//	in->in_flags = 0;
 
 	sc->sc_flags &= ~(IWX_FLAG_SCANNING | IWX_FLAG_BGSCAN);
 	sc->sc_flags &= ~IWX_FLAG_MAC_ACTIVE;
