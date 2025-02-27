@@ -8386,10 +8386,6 @@ iwx_send_update_mcc_cmd(struct iwx_softc *sc, const char *alpha2)
 	DPRINTF(("MCC status=0x%x mcc=0x%x cap=0x%x time=0x%x geo_info=0x%x source_id=0x%d n_channels=%u\n",
 	    resp->status, resp->mcc, resp->cap, resp->time, resp->geo_info, resp->source_id, resp->n_channels));
 
-	// TODO
-//	/* Update channel map for net80211 and our scan configuration. */
-//	iwx_init_channel_map(sc, NULL, resp->channels, resp->n_channels);
-
 out:
 	iwx_free_resp(sc, &hcmd);
 
