@@ -416,8 +416,8 @@ static void	iwx_txq_advance(struct iwx_softc *, struct iwx_tx_ring *, uint16_t);
 static void	iwx_rx_tx_cmd(struct iwx_softc *, struct iwx_rx_packet *,
 	    struct iwx_rx_data *);
 static void	iwx_clear_oactive(struct iwx_softc *, struct iwx_tx_ring *);
-//void	iwx_rx_bmiss(struct iwx_softc *, struct iwx_rx_packet *,
-//	    struct iwx_rx_data *);
+static void	iwx_rx_bmiss(struct iwx_softc *, struct iwx_rx_packet *,
+    struct iwx_rx_data *);
 static int	iwx_binding_cmd(struct iwx_softc *, struct iwx_node *, uint32_t);
 static uint8_t	iwx_get_vht_ctrl_pos(struct ieee80211com *, struct ieee80211_channel *);
 static int	iwx_phy_ctxt_cmd_uhb_v3_v4(struct iwx_softc *,
@@ -4834,39 +4834,29 @@ iwx_rx_compressed_ba(struct iwx_softc *sc, struct iwx_rx_packet *pkt)
 	}
 }
 
-//void
-//iwx_rx_bmiss(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
-//    struct iwx_rx_data *data)
-//{
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct iwx_missed_beacons_notif *mbn = (void *)pkt->data;
-//	uint32_t missed;
-//
-//	if ((ic->ic_opmode != IEEE80211_M_STA) ||
-//	    (ic->ic_state != IEEE80211_S_RUN))
-//		return;
-//
-//	bus_dmamap_sync(sc->sc_dmat, data->map, sizeof(*pkt),
-//	    sizeof(*mbn), BUS_DMASYNC_POSTREAD);
-//
-//	missed = le32toh(mbn->consec_missed_beacons_since_last_rx);
-//	if (missed > ic->ic_bmissthres && ic->ic_mgt_timer == 0) {
-//		if (ic->ic_if.if_flags & IFF_DEBUG)
-//			printf("%s: receiving no beacons from %s; checking if "
-//			    "this AP is still responding to probe requests\n",
-//			    DEVNAME(sc), ether_sprintf(ic->ic_bss->ni_macaddr));
-//		/*
-//		 * Rather than go directly to scan state, try to send a
-//		 * directed probe request first. If that fails then the
-//		 * state machine will drop us into scanning after timing
-//		 * out waiting for a probe response.
-//		 */
-//		IEEE80211_SEND_MGMT(ic, ic->ic_bss,
-//		    IEEE80211_FC0_SUBTYPE_PROBE_REQ, 0);
-//	}
-//
-//}
-//
+static void
+iwx_rx_bmiss(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
+    struct iwx_rx_data *data)
+{
+	struct ieee80211com *ic = &sc->sc_ic;
+	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
+	struct iwx_missed_beacons_notif *mbn = (void *)pkt->data;
+	uint32_t missed;
+
+	if ((ic->ic_opmode != IEEE80211_M_STA) ||
+	    (vap->iv_state != IEEE80211_S_RUN))
+		return;
+
+	bus_dmamap_sync(sc->rxq.data_dmat, data->map,
+	    BUS_DMASYNC_POSTREAD);
+
+	missed = le32toh(mbn->consec_missed_beacons_since_last_rx);
+	if (missed > vap->iv_bmissthreshold) {
+		ieee80211_beacon_miss(ic);
+	}
+
+}
+
 static int
 iwx_binding_cmd(struct iwx_softc *sc, struct iwx_node *in, uint32_t action)
 {
@@ -9137,7 +9127,7 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 			break;
 
 		case IWX_MISSED_BEACONS_NOTIFICATION:
-//			iwx_rx_bmiss(sc, pkt, data);
+			iwx_rx_bmiss(sc, pkt, data);
 			DPRINTF(("%s: IWX_MISSED_BEACONS_NOTIFICATION\n",
 			    __func__));
 			ieee80211_beacon_miss(ic);
