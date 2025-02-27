@@ -5588,25 +5588,20 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 
 	qid = sc->first_data_qid;
 
-//	/* Put QoS frames on the data queue which maps to their TID. */
+	/* Put QoS frames on the data queue which maps to their TID. */
 	if (IEEE80211_QOS_HAS_SEQ(wh) && (sc->sc_flags & IWX_FLAG_AMPDUTX)) {
 		uint16_t qos = ieee80211_gettid(wh);
 		uint8_t tid = qos & IEEE80211_QOS_TID;
-//
+//		struct ieee80211_tx_ba *ba;
 //		ba = &ni->ni_tx_ba[tid];
-//		printf(">>> %s tid=%i\n", __func__, tid);
-//		printf(">>> %s sc->aggqid[tid]=%i\n", __func__, sc->aggqid[tid]);
-//		printf(">>> %s subtype=%x\n", __func__, subtype);
+
 		if (!IEEE80211_IS_MULTICAST(wh->i_addr1) &&
 		    type == IEEE80211_FC0_TYPE_DATA &&
 		    subtype != IEEE80211_FC0_SUBTYPE_NODATA &&
 //		    subtype != IEEE80211_FC0_SUBTYPE_BAR &&
-		    sc->aggqid[tid] != 0 /* &&
+		    sc->aggqid[tid] != 0  /*&&
 		    ba->ba_state == IEEE80211_BA_AGREED*/) {
 			qid = sc->aggqid[tid];
-//			printf(">>> %s type=%i\n", __func__, type);
-//			printf(">>> %s subtype=%i\n", __func__, subtype);
-//			printf(">>> %s qid=%i\n", __func__, qid);
 		}
 	}
 
@@ -5621,7 +5616,6 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 	cmd->hdr.qid = ring->qid;
 	cmd->hdr.idx = ring->cur;
 
-//	rinfo = iwx_tx_fill_cmd(sc, in, wh, &flags, &rate_n_flags);	// XXX-THJ look at this
 	rinfo = iwx_tx_fill_cmd(sc, in, wh, &flags, &rate_n_flags, m);
 	if (rinfo == NULL)
 		return EINVAL;
