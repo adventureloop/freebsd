@@ -9345,19 +9345,19 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 			break;
 		}
 
-//		case IWX_TIME_EVENT_NOTIFICATION: {
-//			struct iwx_time_event_notif *notif;
-//			uint32_t action;
-//			SYNC_RESP_STRUCT(notif, pkt);
-//
-//			if (sc->sc_time_event_uid != le32toh(notif->unique_id))
-//				break;
-//			action = le32toh(notif->action);
-//			if (action & IWX_TE_V2_NOTIF_HOST_EVENT_END)
-//				sc->sc_flags &= ~IWX_FLAG_TE_ACTIVE;
-//			break;
-//		}
-//
+		case IWX_TIME_EVENT_NOTIFICATION: {
+			struct iwx_time_event_notif *notif;
+			uint32_t action;
+			SYNC_RESP_STRUCT(notif, pkt);
+
+			if (sc->sc_time_event_uid != le32toh(notif->unique_id))
+				break;
+			action = le32toh(notif->action);
+			if (action & IWX_TE_V2_NOTIF_HOST_EVENT_END)
+				sc->sc_flags &= ~IWX_FLAG_TE_ACTIVE;
+			break;
+		}
+
 		case IWX_WIDE_ID(IWX_MAC_CONF_GROUP,
 		    IWX_SESSION_PROTECTION_NOTIF): {
 			struct iwx_session_prot_notif *notif;
