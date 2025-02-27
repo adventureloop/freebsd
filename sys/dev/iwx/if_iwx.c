@@ -3991,11 +3991,11 @@ iwx_run_init_mvm_ucode(struct iwx_softc *sc, int readnvm)
 
 	int err;
 
-//	if ((sc->sc_flags & IWX_FLAG_RFKILL) && !readnvm) {
-//		printf("%s: radio is disabled by hardware switch\n",
-//		    DEVNAME(sc));
-//		return EPERM;
-//	}
+	if ((sc->sc_flags & IWX_FLAG_RFKILL) && !readnvm) {
+		printf("%s: radio is disabled by hardware switch\n",
+		    DEVNAME(sc));
+		return EPERM;
+	}
 
 	sc->sc_init_complete = 0;
 	err = iwx_load_ucode_wait_alive(sc);
