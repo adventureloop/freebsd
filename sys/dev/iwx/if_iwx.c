@@ -9041,7 +9041,6 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 			break;
 
 		case IWX_BA_NOTIF:
-//			printf("%s: IWX_BA_NOTIF\n", __func__);
 			iwx_rx_compressed_ba(sc, pkt);
 			break;
 
