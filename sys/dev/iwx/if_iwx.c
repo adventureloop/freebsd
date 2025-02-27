@@ -5270,8 +5270,6 @@ iwx_send_cmd(struct iwx_softc *sc, struct iwx_host_cmd *hcmd)
 		}
 	}
 out:
-//	splx(s);
-//
 	return err;
 }
 
@@ -5288,7 +5286,7 @@ iwx_send_cmd_pdu(struct iwx_softc *sc, uint32_t id, uint32_t flags,
 
 	return iwx_send_cmd(sc, &cmd);
 }
-//
+
 static int
 iwx_send_cmd_status(struct iwx_softc *sc, struct iwx_host_cmd *cmd,
     uint32_t *status)
