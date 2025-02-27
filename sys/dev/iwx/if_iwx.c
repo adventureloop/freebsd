@@ -4906,8 +4906,6 @@ iwx_binding_cmd(struct iwx_softc *sc, struct iwx_node *in, uint32_t action)
 static uint8_t
 iwx_get_vht_ctrl_pos(struct ieee80211com *ic, struct ieee80211_channel *chan)
 {
-//	int center_idx = ic->ic_bss->ni_vht_chan_center_freq_idx0;
-//	int primary_idx = ic->ic_bss->ni_primary_chan;
 	int ctlchan = ieee80211_chan2ieee(ic, chan);
 	int midpoint = chan->ic_vht_ch_freq1;
 
