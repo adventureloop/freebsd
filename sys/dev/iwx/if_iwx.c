@@ -2778,7 +2778,7 @@ iwx_stop_device(struct iwx_softc *sc)
 	for (i = 0; i < nitems(sc->txq); i++)
 		iwx_reset_tx_ring(sc, &sc->txq[i]);
 #if 0
-	/* XXX-THJ: Tidy up BA state on stop
+	/* XXX-THJ: Tidy up BA state on stop */
 	for (i = 0; i < IEEE80211_NUM_TID; i++) {
 		struct ieee80211_tx_ba *ba = &ni->ni_tx_ba[i];
 		if (ba->ba_state != IEEE80211_BA_AGREED)
