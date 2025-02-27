@@ -9085,9 +9085,8 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 
 		switch (code) {
 		case IWX_REPLY_RX_PHY_CMD:
-#if 0
+			/* XXX-THJ: I've not managed to hit this path in testing */
 			iwx_rx_rx_phy_cmd(sc, pkt, data);
-#endif
 			break;
 
 		case IWX_REPLY_RX_MPDU_CMD: {
