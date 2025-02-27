@@ -403,8 +403,10 @@ static void	iwx_rx_rx_phy_cmd(struct iwx_softc *, struct iwx_rx_packet *,
     struct iwx_rx_data *);
 static int	iwx_get_noise(const struct iwx_statistics_rx_non_phy *);
 static int	iwx_rx_hwdecrypt(struct iwx_softc *, struct mbuf *, uint32_t);
-//int	iwx_ccmp_decap(struct iwx_softc *, struct mbuf *,
-//	    struct ieee80211_node *, struct ieee80211_rxinfo *);
+#if 0
+int	iwx_ccmp_decap(struct iwx_softc *, struct mbuf *,
+	    struct ieee80211_node *, struct ieee80211_rxinfo *);
+#endif
 static void	iwx_rx_frame(struct iwx_softc *, struct mbuf *, int, uint32_t,
     int, int, uint32_t, uint8_t);
 static void	iwx_clear_tx_desc(struct iwx_softc *, struct iwx_tx_ring *, int);
@@ -507,11 +509,13 @@ static int	iwx_run(struct ieee80211vap *, struct iwx_softc *);
 static int	iwx_run_stop(struct iwx_softc *);
 static struct ieee80211_node * iwx_node_alloc(struct ieee80211vap *,
     const uint8_t[IEEE80211_ADDR_LEN]);
-//int	iwx_set_key(struct ieee80211com *, struct ieee80211_node *,
-//	    struct ieee80211_key *);
-//void	iwx_setkey_task(void *);
-//void	iwx_delete_key(struct ieee80211com *,
-//	    struct ieee80211_node *, struct ieee80211_key *);
+#if 0
+int	iwx_set_key(struct ieee80211com *, struct ieee80211_node *,
+	    struct ieee80211_key *);
+void	iwx_setkey_task(void *);
+void	iwx_delete_key(struct ieee80211com *,
+	    struct ieee80211_node *, struct ieee80211_key *);
+#endif
 static int	iwx_newstate(struct ieee80211vap *, enum ieee80211_state, int);
 static void	iwx_endscan(struct iwx_softc *);
 static void	iwx_fill_sf_command(struct iwx_softc *, struct iwx_sf_cfg_cmd *,
@@ -4169,64 +4173,66 @@ iwx_get_noise(const struct iwx_statistics_rx_non_phy *stats)
 	return (nbant == 0) ? -127 : (total / nbant) - 107;
 }
 
-//int
-//iwx_ccmp_decap(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni,
-//    struct ieee80211_rxinfo *rxi)
-//{
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct ieee80211_key *k;
-//	struct ieee80211_frame *wh;
-//	uint64_t pn, *prsc;
-//	uint8_t *ivp;
-//	uint8_t tid;
-//	int hdrlen, hasqos;
-//
-//	wh = mtod(m, struct ieee80211_frame *);
-//	hdrlen = ieee80211_get_hdrlen(wh);
-//	ivp = (uint8_t *)wh + hdrlen;
-//
-//	/* find key for decryption */
-//	k = ieee80211_get_rxkey(ic, m, ni);
-//	if (k == NULL || k->k_cipher != IEEE80211_CIPHER_CCMP)
-//		return 1;
-//
-//	/* Check that ExtIV bit is be set. */
-//	if (!(ivp[3] & IEEE80211_WEP_EXTIV))
-//		return 1;
-//
-//	hasqos = ieee80211_has_qos(wh);
-//	tid = hasqos ? ieee80211_get_qos(wh) & IEEE80211_QOS_TID : 0;
-//	prsc = &k->k_rsc[tid];
-//
-//	/* Extract the 48-bit PN from the CCMP header. */
-//	pn = (uint64_t)ivp[0]       |
-//	     (uint64_t)ivp[1] <<  8 |
-//	     (uint64_t)ivp[4] << 16 |
-//	     (uint64_t)ivp[5] << 24 |
-//	     (uint64_t)ivp[6] << 32 |
-//	     (uint64_t)ivp[7] << 40;
-//	if (rxi->rxi_flags & IEEE80211_RXI_HWDEC_SAME_PN) {
-//		if (pn < *prsc) {
-//			ic->ic_stats.is_ccmp_replays++;
-//			return 1;
-//		}
-//	} else if (pn <= *prsc) {
-//		ic->ic_stats.is_ccmp_replays++;
-//		return 1;
-//	}
-//	/* Last seen packet number is updated in ieee80211_inputm(). */
-//
-//	/*
-//	 * Some firmware versions strip the MIC, and some don't. It is not
-//	 * clear which of the capability flags could tell us what to expect.
-//	 * For now, keep things simple and just leave the MIC in place if
-//	 * it is present.
-//	 *
-//	 * The IV will be stripped by ieee80211_inputm().
-//	 */
-//	return 0;
-//}
-//
+#if 0
+int
+iwx_ccmp_decap(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni,
+    struct ieee80211_rxinfo *rxi)
+{
+	struct ieee80211com *ic = &sc->sc_ic;
+	struct ieee80211_key *k;
+	struct ieee80211_frame *wh;
+	uint64_t pn, *prsc;
+	uint8_t *ivp;
+	uint8_t tid;
+	int hdrlen, hasqos;
+
+	wh = mtod(m, struct ieee80211_frame *);
+	hdrlen = ieee80211_get_hdrlen(wh);
+	ivp = (uint8_t *)wh + hdrlen;
+
+	/* find key for decryption */
+	k = ieee80211_get_rxkey(ic, m, ni);
+	if (k == NULL || k->k_cipher != IEEE80211_CIPHER_CCMP)
+		return 1;
+
+	/* Check that ExtIV bit is be set. */
+	if (!(ivp[3] & IEEE80211_WEP_EXTIV))
+		return 1;
+
+	hasqos = ieee80211_has_qos(wh);
+	tid = hasqos ? ieee80211_get_qos(wh) & IEEE80211_QOS_TID : 0;
+	prsc = &k->k_rsc[tid];
+
+	/* Extract the 48-bit PN from the CCMP header. */
+	pn = (uint64_t)ivp[0]       |
+	     (uint64_t)ivp[1] <<  8 |
+	     (uint64_t)ivp[4] << 16 |
+	     (uint64_t)ivp[5] << 24 |
+	     (uint64_t)ivp[6] << 32 |
+	     (uint64_t)ivp[7] << 40;
+	if (rxi->rxi_flags & IEEE80211_RXI_HWDEC_SAME_PN) {
+		if (pn < *prsc) {
+			ic->ic_stats.is_ccmp_replays++;
+			return 1;
+		}
+	} else if (pn <= *prsc) {
+		ic->ic_stats.is_ccmp_replays++;
+		return 1;
+	}
+	/* Last seen packet number is updated in ieee80211_inputm(). */
+
+	/*
+	 * Some firmware versions strip the MIC, and some don't. It is not
+	 * clear which of the capability flags could tell us what to expect.
+	 * For now, keep things simple and just leave the MIC in place if
+	 * it is present.
+	 *
+	 * The IV will be stripped by ieee80211_inputm().
+	 */
+	return 0;
+}
+#endif
+
 static int
 iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status)
 {
@@ -6140,8 +6146,6 @@ iwx_add_sta_cmd(struct iwx_softc *sc, struct iwx_node *in, int update)
 	add_sta_cmd.station_flags_msk
 	    |= htole32(IWX_STA_FLG_FAT_EN_MSK | IWX_STA_FLG_MIMO_EN_MSK);
 
-iwx look into sta info
-
 	if (in->in_ni.ni_flags & IEEE80211_NODE_HT) {
 		add_sta_cmd.station_flags_msk
 		    |= htole32(IWX_STA_FLG_MAX_AGG_SIZE_MSK |
@@ -7889,156 +7893,158 @@ iwx_node_alloc(struct ieee80211vap *vap, const uint8_t mac[IEEE80211_ADDR_LEN])
 	    M_NOWAIT | M_ZERO);
 }
 
-//int
-//iwx_set_key(struct ieee80211com *ic, struct ieee80211_node *ni,
-//    struct ieee80211_key *k)
-//{
-//	struct iwx_softc *sc = ic->ic_softc;
-//	struct iwx_node *in = (void *)ni;
-//	struct iwx_setkey_task_arg *a;
-//	int err;
-//
-//	if (k->k_cipher != IEEE80211_CIPHER_CCMP) {
-//		/* Fallback to software crypto for other ciphers. */
-//		err = ieee80211_set_key(ic, ni, k);
-//		if (!err && in != NULL && (k->k_flags & IEEE80211_KEY_GROUP))
-//			in->in_flags |= IWX_NODE_FLAG_HAVE_GROUP_KEY;
-//		return err;
-//	}
-//
-//	if (sc->setkey_nkeys >= nitems(sc->setkey_arg))
-//		return ENOSPC;
-//
-//	a = &sc->setkey_arg[sc->setkey_cur];
-//	a->sta_id = IWX_STATION_ID;
-//	a->ni = ni;
-//	a->k = k;
-//	sc->setkey_cur = (sc->setkey_cur + 1) % nitems(sc->setkey_arg);
-//	sc->setkey_nkeys++;
-//	iwx_add_task(sc, systq, &sc->setkey_task);
-//	return EBUSY;
-//}
-//
-//int
-//iwx_add_sta_key(struct iwx_softc *sc, int sta_id, struct ieee80211_node *ni,
-//    struct ieee80211_key *k)
-//{
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct iwx_node *in = (void *)ni;
-//	struct iwx_add_sta_key_cmd cmd;
-//	uint32_t status;
-//	const int want_keymask = (IWX_NODE_FLAG_HAVE_PAIRWISE_KEY |
-//	    IWX_NODE_FLAG_HAVE_GROUP_KEY);
-//	int err;
-//
-//	/*
-//	 * Keys are stored in 'ni' so 'k' is valid if 'ni' is valid.
-//	 * Currently we only implement station mode where 'ni' is always
-//	 * ic->ic_bss so there is no need to validate arguments beyond this:
-//	 */
-//	KASSERT(ni == ic->ic_bss);
-//
-//	memset(&cmd, 0, sizeof(cmd));
-//
-//	cmd.common.key_flags = htole16(IWX_STA_KEY_FLG_CCM |
-//	    IWX_STA_KEY_FLG_WEP_KEY_MAP |
-//	    ((k->k_id << IWX_STA_KEY_FLG_KEYID_POS) &
-//	    IWX_STA_KEY_FLG_KEYID_MSK));
-//	if (k->k_flags & IEEE80211_KEY_GROUP) {
-//		cmd.common.key_offset = 1;
-//		cmd.common.key_flags |= htole16(IWX_STA_KEY_MULTICAST);
-//	} else
-//		cmd.common.key_offset = 0;
-//
-//	memcpy(cmd.common.key, k->k_key, MIN(sizeof(cmd.common.key), k->k_len));
-//	cmd.common.sta_id = sta_id;
-//
-//	cmd.transmit_seq_cnt = htole64(k->k_tsc);
-//
-//	status = IWX_ADD_STA_SUCCESS;
-//	err = iwx_send_cmd_pdu_status(sc, IWX_ADD_STA_KEY, sizeof(cmd), &cmd,
-//	    &status);
-//	if (sc->sc_flags & IWX_FLAG_SHUTDOWN)
-//		return ECANCELED;
-//	if (!err && (status & IWX_ADD_STA_STATUS_MASK) != IWX_ADD_STA_SUCCESS)
-//		err = EIO;
-//	if (err) {
-//		IEEE80211_SEND_MGMT(ic, ni, IEEE80211_FC0_SUBTYPE_DEAUTH,
-//		    IEEE80211_REASON_AUTH_LEAVE);
-//		ieee80211_new_state(ic, IEEE80211_S_SCAN, -1);
-//		return err;
-//	}
-//
-//	if (k->k_flags & IEEE80211_KEY_GROUP)
-//		in->in_flags |= IWX_NODE_FLAG_HAVE_GROUP_KEY;
-//	else
-//		in->in_flags |= IWX_NODE_FLAG_HAVE_PAIRWISE_KEY;
-//
-//	if ((in->in_flags & want_keymask) == want_keymask) {
-//		DPRINTF(("marking port %s valid\n",
-//		    ether_sprintf(ni->ni_macaddr)));
-//		ni->ni_port_valid = 1;
-//		ieee80211_set_link_state(ic, LINK_STATE_UP);
-//	}
-//
-//	return 0;
-//}
-//
-//void
-//iwx_setkey_task(void *arg)
-//{
-//	struct iwx_softc *sc = arg;
-//	struct iwx_setkey_task_arg *a;
-//	int err = 0, s = splnet();
-//
-//	while (sc->setkey_nkeys > 0) {
-//		if (err || (sc->sc_flags & IWX_FLAG_SHUTDOWN))
-//			break;
-//		a = &sc->setkey_arg[sc->setkey_tail];
-//		err = iwx_add_sta_key(sc, a->sta_id, a->ni, a->k);
-//		a->sta_id = 0;
-//		a->ni = NULL;
-//		a->k = NULL;
-//		sc->setkey_tail = (sc->setkey_tail + 1) %
-//		    nitems(sc->setkey_arg);
-//		sc->setkey_nkeys--;
-//	}
-//
-//	refcnt_rele_wake(&sc->task_refs);
-//	splx(s);
-//}
-//
-//void
-//iwx_delete_key(struct ieee80211com *ic, struct ieee80211_node *ni,
-//    struct ieee80211_key *k)
-//{
-//	struct iwx_softc *sc = ic->ic_softc;
-//	struct iwx_add_sta_key_cmd cmd;
-//
-//	if (k->k_cipher != IEEE80211_CIPHER_CCMP) {
-//		/* Fallback to software crypto for other ciphers. */
-//                ieee80211_delete_key(ic, ni, k);
-//		return;
-//	}
-//
-//	if ((sc->sc_flags & IWX_FLAG_STA_ACTIVE) == 0)
-//		return;
-//
-//	memset(&cmd, 0, sizeof(cmd));
-//
-//	cmd.common.key_flags = htole16(IWX_STA_KEY_NOT_VALID |
-//	    IWX_STA_KEY_FLG_NO_ENC | IWX_STA_KEY_FLG_WEP_KEY_MAP |
-//	    ((k->k_id << IWX_STA_KEY_FLG_KEYID_POS) &
-//	    IWX_STA_KEY_FLG_KEYID_MSK));
-//	memcpy(cmd.common.key, k->k_key, MIN(sizeof(cmd.common.key), k->k_len));
-//	if (k->k_flags & IEEE80211_KEY_GROUP)
-//		cmd.common.key_offset = 1;
-//	else
-//		cmd.common.key_offset = 0;
-//	cmd.common.sta_id = IWX_STATION_ID;
-//
-//	iwx_send_cmd_pdu(sc, IWX_ADD_STA_KEY, IWX_CMD_ASYNC, sizeof(cmd), &cmd);
-//}
+#if 0
+int
+iwx_set_key(struct ieee80211com *ic, struct ieee80211_node *ni,
+    struct ieee80211_key *k)
+{
+	struct iwx_softc *sc = ic->ic_softc;
+	struct iwx_node *in = (void *)ni;
+	struct iwx_setkey_task_arg *a;
+	int err;
+
+	if (k->k_cipher != IEEE80211_CIPHER_CCMP) {
+		/* Fallback to software crypto for other ciphers. */
+		err = ieee80211_set_key(ic, ni, k);
+		if (!err && in != NULL && (k->k_flags & IEEE80211_KEY_GROUP))
+			in->in_flags |= IWX_NODE_FLAG_HAVE_GROUP_KEY;
+		return err;
+	}
+
+	if (sc->setkey_nkeys >= nitems(sc->setkey_arg))
+		return ENOSPC;
+
+	a = &sc->setkey_arg[sc->setkey_cur];
+	a->sta_id = IWX_STATION_ID;
+	a->ni = ni;
+	a->k = k;
+	sc->setkey_cur = (sc->setkey_cur + 1) % nitems(sc->setkey_arg);
+	sc->setkey_nkeys++;
+	iwx_add_task(sc, systq, &sc->setkey_task);
+	return EBUSY;
+}
+
+int
+iwx_add_sta_key(struct iwx_softc *sc, int sta_id, struct ieee80211_node *ni,
+    struct ieee80211_key *k)
+{
+	struct ieee80211com *ic = &sc->sc_ic;
+	struct iwx_node *in = (void *)ni;
+	struct iwx_add_sta_key_cmd cmd;
+	uint32_t status;
+	const int want_keymask = (IWX_NODE_FLAG_HAVE_PAIRWISE_KEY |
+	    IWX_NODE_FLAG_HAVE_GROUP_KEY);
+	int err;
+
+	/*
+	 * Keys are stored in 'ni' so 'k' is valid if 'ni' is valid.
+	 * Currently we only implement station mode where 'ni' is always
+	 * ic->ic_bss so there is no need to validate arguments beyond this:
+	 */
+	KASSERT(ni == ic->ic_bss);
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cmd.common.key_flags = htole16(IWX_STA_KEY_FLG_CCM |
+	    IWX_STA_KEY_FLG_WEP_KEY_MAP |
+	    ((k->k_id << IWX_STA_KEY_FLG_KEYID_POS) &
+	    IWX_STA_KEY_FLG_KEYID_MSK));
+	if (k->k_flags & IEEE80211_KEY_GROUP) {
+		cmd.common.key_offset = 1;
+		cmd.common.key_flags |= htole16(IWX_STA_KEY_MULTICAST);
+	} else
+		cmd.common.key_offset = 0;
+
+	memcpy(cmd.common.key, k->k_key, MIN(sizeof(cmd.common.key), k->k_len));
+	cmd.common.sta_id = sta_id;
+
+	cmd.transmit_seq_cnt = htole64(k->k_tsc);
+
+	status = IWX_ADD_STA_SUCCESS;
+	err = iwx_send_cmd_pdu_status(sc, IWX_ADD_STA_KEY, sizeof(cmd), &cmd,
+	    &status);
+	if (sc->sc_flags & IWX_FLAG_SHUTDOWN)
+		return ECANCELED;
+	if (!err && (status & IWX_ADD_STA_STATUS_MASK) != IWX_ADD_STA_SUCCESS)
+		err = EIO;
+	if (err) {
+		IEEE80211_SEND_MGMT(ic, ni, IEEE80211_FC0_SUBTYPE_DEAUTH,
+		    IEEE80211_REASON_AUTH_LEAVE);
+		ieee80211_new_state(ic, IEEE80211_S_SCAN, -1);
+		return err;
+	}
+
+	if (k->k_flags & IEEE80211_KEY_GROUP)
+		in->in_flags |= IWX_NODE_FLAG_HAVE_GROUP_KEY;
+	else
+		in->in_flags |= IWX_NODE_FLAG_HAVE_PAIRWISE_KEY;
+
+	if ((in->in_flags & want_keymask) == want_keymask) {
+		DPRINTF(("marking port %s valid\n",
+		    ether_sprintf(ni->ni_macaddr)));
+		ni->ni_port_valid = 1;
+		ieee80211_set_link_state(ic, LINK_STATE_UP);
+	}
+
+	return 0;
+}
+
+void
+iwx_setkey_task(void *arg)
+{
+	struct iwx_softc *sc = arg;
+	struct iwx_setkey_task_arg *a;
+	int err = 0, s = splnet();
+
+	while (sc->setkey_nkeys > 0) {
+		if (err || (sc->sc_flags & IWX_FLAG_SHUTDOWN))
+			break;
+		a = &sc->setkey_arg[sc->setkey_tail];
+		err = iwx_add_sta_key(sc, a->sta_id, a->ni, a->k);
+		a->sta_id = 0;
+		a->ni = NULL;
+		a->k = NULL;
+		sc->setkey_tail = (sc->setkey_tail + 1) %
+		    nitems(sc->setkey_arg);
+		sc->setkey_nkeys--;
+	}
+
+	refcnt_rele_wake(&sc->task_refs);
+	splx(s);
+}
+
+void
+iwx_delete_key(struct ieee80211com *ic, struct ieee80211_node *ni,
+    struct ieee80211_key *k)
+{
+	struct iwx_softc *sc = ic->ic_softc;
+	struct iwx_add_sta_key_cmd cmd;
+
+	if (k->k_cipher != IEEE80211_CIPHER_CCMP) {
+		/* Fallback to software crypto for other ciphers. */
+                ieee80211_delete_key(ic, ni, k);
+		return;
+	}
+
+	if ((sc->sc_flags & IWX_FLAG_STA_ACTIVE) == 0)
+		return;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cmd.common.key_flags = htole16(IWX_STA_KEY_NOT_VALID |
+	    IWX_STA_KEY_FLG_NO_ENC | IWX_STA_KEY_FLG_WEP_KEY_MAP |
+	    ((k->k_id << IWX_STA_KEY_FLG_KEYID_POS) &
+	    IWX_STA_KEY_FLG_KEYID_MSK));
+	memcpy(cmd.common.key, k->k_key, MIN(sizeof(cmd.common.key), k->k_len));
+	if (k->k_flags & IEEE80211_KEY_GROUP)
+		cmd.common.key_offset = 1;
+	else
+		cmd.common.key_offset = 0;
+	cmd.common.sta_id = IWX_STATION_ID;
+
+	iwx_send_cmd_pdu(sc, IWX_ADD_STA_KEY, IWX_CMD_ASYNC, sizeof(cmd), &cmd);
+}
+#endif
 
 static int
 iwx_newstate_sub(struct ieee80211vap *vap, enum ieee80211_state nstate)
