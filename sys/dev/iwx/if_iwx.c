@@ -9610,7 +9610,8 @@ iwx_intr_msix(void *arg)
 	}
 
 	if (inta_hw & IWX_MSIX_HW_INT_CAUSES_REG_ALIVE) {
-		printf("%s:%d WARNING: Skipping rx desc update\n",
+		IWX_DPRINTF(sc, IWX_DEBUG_TRACE,
+		    "%s:%d WARNING: Skipping rx desc update\n",
 		    __func__, __LINE__);
 #if 0
 		/*
