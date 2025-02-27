@@ -10097,9 +10097,6 @@ iwx_preinit(struct iwx_softc *sc)
 	}
 
 	if (sc->attached) {
-//		/* Update MAC in case the upper layers changed it. */
-//		IEEE80211_ADDR_COPY(sc->sc_ic.ic_myaddr,
-//		    ((struct arpcom *)ifp)->ac_enaddr);
 		return 0;
 	}
 
