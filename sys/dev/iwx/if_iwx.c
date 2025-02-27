@@ -4571,14 +4571,6 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 		return;
 	}
 
-//	if (iwx_detect_duplicate(sc, m, desc, &rxi)) {
-//#ifdef IWX_DEBUG
-//		iwx_bbl_add_entry(sc->sc_dups++, IWX_BBL_PKT_DUP);
-//#endif
-//		m_freem(m);
-//		return;
-//	}
-//
 	if (sc->sc_device_family >= IWX_DEVICE_FAMILY_AX210) {
 		rate_n_flags = le32toh(desc->v3.rate_n_flags);
 		chanidx = desc->v3.channel;
