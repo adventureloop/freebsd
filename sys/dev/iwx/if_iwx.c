@@ -4753,7 +4753,6 @@ iwx_rx_tx_cmd(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
 		//TODO if_start?
 		iwx_clear_oactive(sc, ring);
 	}
-//	IWX_UNLOCK(sc);
 }
 
 static void
