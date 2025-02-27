@@ -110,8 +110,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-//#include "bpfilter.h"
-
 #include <sys/param.h>
 #include <sys/bus.h>
 #include <sys/module.h>
@@ -214,7 +212,7 @@ static const struct iwx_devices {
 	{ PCI_PRODUCT_INTEL_WL_22500_17,	"Wi-Fi 6 AX211"	},
 };
 
-const uint8_t iwx_nvm_channels_8000[] = {
+static const uint8_t iwx_nvm_channels_8000[] = {
 	/* 2.4 GHz */
 	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
 	/* 5 GHz */
@@ -376,12 +374,12 @@ static int	iwx_mimo_enabled(struct iwx_softc *);
 static void	iwx_init_reorder_buffer(struct iwx_reorder_buffer *, uint16_t,
 	    uint16_t);
 static void	iwx_clear_reorder_buffer(struct iwx_softc *, struct iwx_rxba_data *);
-void	iwx_sta_rx_agg(struct iwx_softc *, struct ieee80211_node *, uint8_t,
+static void	iwx_sta_rx_agg(struct iwx_softc *, struct ieee80211_node *, uint8_t,
 	    uint16_t, uint16_t, int, int);
 static void	iwx_sta_tx_agg_start(struct iwx_softc *,
     struct ieee80211_node *, uint8_t);
-void	iwx_ba_rx_task(void *, int);
-void	iwx_ba_tx_task(void *, int);
+static void	iwx_ba_rx_task(void *, int);
+static void	iwx_ba_tx_task(void *, int);
 static void	iwx_set_mac_addr_from_csr(struct iwx_softc *, struct iwx_nvm_data *);
 static int	iwx_is_valid_mac_addr(const uint8_t *);
 static void	iwx_flip_hw_address(uint32_t, uint32_t, uint8_t *);
@@ -526,7 +524,7 @@ static int	iwx_send_temp_report_ths_cmd(struct iwx_softc *);
 static int	iwx_init_hw(struct iwx_softc *);
 static int	iwx_init(struct iwx_softc *);
 static void	iwx_stop(struct iwx_softc *);
-void iwx_watchdog(void *);
+static void	iwx_watchdog(void *);
 static const char *iwx_desc_lookup(uint32_t);
 static void	iwx_nic_error(struct iwx_softc *);
 static void	iwx_dump_driver_status(struct iwx_softc *);
@@ -543,7 +541,7 @@ static int	iwx_intr(void *);
 static void	iwx_intr_msix(void *);
 static int	iwx_preinit(struct iwx_softc *);
 static void	iwx_attach_hook(void *);
-const struct iwx_device_cfg *iwx_find_device_cfg(struct iwx_softc *);
+static const struct iwx_device_cfg *iwx_find_device_cfg(struct iwx_softc *);
 static int	iwx_probe(device_t);
 static int	iwx_attach(device_t);
 static int	iwx_detach(device_t);
@@ -562,39 +560,41 @@ u_int8_t etheranyaddr[ETHER_ADDR_LEN] =
 #endif
 
 /* FreeBSD specific functions */
-struct ieee80211vap * iwx_vap_create(struct ieee80211com *,
+static struct	ieee80211vap * iwx_vap_create(struct ieee80211com *,
     const char[IFNAMSIZ], int, enum ieee80211_opmode, int,
     const uint8_t[IEEE80211_ADDR_LEN], const uint8_t[IEEE80211_ADDR_LEN]);
-void iwx_vap_delete(struct ieee80211vap *);
-void iwx_parent(struct ieee80211com *);
-void iwx_scan_start(struct ieee80211com *);
-void iwx_scan_end(struct ieee80211com *);
-void iwx_update_mcast(struct ieee80211com *ic);
-void iwx_scan_curchan(struct ieee80211_scan_state *, unsigned long);
-void iwx_scan_mindwell(struct ieee80211_scan_state *);
-void iwx_set_channel(struct ieee80211com *);
-void iwx_endscan_cb(void *, int );
-int iwx_wme_update(struct ieee80211com *);
-int iwx_raw_xmit(struct ieee80211_node *, struct mbuf *,
+static void	iwx_vap_delete(struct ieee80211vap *);
+static void	iwx_parent(struct ieee80211com *);
+static void	iwx_scan_start(struct ieee80211com *);
+static void	iwx_scan_end(struct ieee80211com *);
+static void	iwx_update_mcast(struct ieee80211com *ic);
+static void	iwx_scan_curchan(struct ieee80211_scan_state *, unsigned long);
+static void	iwx_scan_mindwell(struct ieee80211_scan_state *);
+static void	iwx_set_channel(struct ieee80211com *);
+static void	iwx_endscan_cb(void *, int );
+static int	iwx_wme_update(struct ieee80211com *);
+static int	iwx_raw_xmit(struct ieee80211_node *, struct mbuf *,
     const struct ieee80211_bpf_params *);
-int iwx_transmit(struct ieee80211com *, struct mbuf *);
-void iwx_start(struct iwx_softc *);
-int iwx_ampdu_rx_start(struct ieee80211_node *, struct ieee80211_rx_ampdu *,
-    int, int, int);
-void iwx_ampdu_rx_stop(struct ieee80211_node *, struct ieee80211_rx_ampdu *);
-int iwx_addba_request(struct ieee80211_node *, struct ieee80211_tx_ampdu *, int,
-    int, int);
-int iwx_addba_response(struct ieee80211_node *, struct ieee80211_tx_ampdu *,
-    int, int, int);
-void iwx_key_update_begin(struct ieee80211vap *);
-void iwx_key_update_end(struct ieee80211vap *);
-int iwx_key_alloc(struct ieee80211vap *, struct ieee80211_key *,
+static int	iwx_transmit(struct ieee80211com *, struct mbuf *);
+static void	iwx_start(struct iwx_softc *);
+static int	iwx_ampdu_rx_start(struct ieee80211_node *,
+    struct ieee80211_rx_ampdu *, int, int, int);
+static void	iwx_ampdu_rx_stop(struct ieee80211_node *,
+    struct ieee80211_rx_ampdu *);
+static int	iwx_addba_request(struct ieee80211_node *,
+    struct ieee80211_tx_ampdu *, int, int, int);
+static int	iwx_addba_response(struct ieee80211_node *,
+    struct ieee80211_tx_ampdu *, int, int, int);
+static void	iwx_key_update_begin(struct ieee80211vap *);
+static void	iwx_key_update_end(struct ieee80211vap *);
+static int	iwx_key_alloc(struct ieee80211vap *, struct ieee80211_key *,
     ieee80211_keyix *,ieee80211_keyix *);
-int iwx_key_set(struct ieee80211vap *, const struct ieee80211_key *);
-int iwx_key_delete(struct ieee80211vap *, const struct ieee80211_key *);
-int iwx_suspend(device_t);
-int iwx_resume(device_t);
-static void iwx_radiotap_attach(struct iwx_softc *);
+static int	iwx_key_set(struct ieee80211vap *, const struct ieee80211_key *);
+static int	iwx_key_delete(struct ieee80211vap *,
+    const struct ieee80211_key *);
+static int	iwx_suspend(device_t);
+static int	iwx_resume(device_t);
+static void	iwx_radiotap_attach(struct iwx_softc *);
 
 /* OpenBSD compat defines */
 #define IEEE80211_HTOP0_SCO_SCN 0
@@ -829,7 +829,7 @@ iwx_fw_version_str(char *buf, size_t bufsize,
 		snprintf(buf, bufsize, "%u.%u.%u", major, minor, api);
 }
 
-int
+static int
 iwx_alloc_fw_monitor_block(struct iwx_softc *sc, uint8_t max_power,
     uint8_t min_power)
 {
@@ -868,7 +868,7 @@ iwx_alloc_fw_monitor_block(struct iwx_softc *sc, uint8_t max_power,
 	return 0;
 }
 
-int
+static int
 iwx_alloc_fw_monitor(struct iwx_softc *sc, uint8_t max_power)
 {
 	if (!max_power) {
@@ -1285,7 +1285,7 @@ iwx_fw_info_free(struct iwx_fw_info *fw)
 
 #define IWX_FW_ADDR_CACHE_CONTROL 0xC0000000
 
-int
+static int
 iwx_read_firmware(struct iwx_softc *sc)
 {
 	struct iwx_fw_info *fw = &sc->sc_fw;
@@ -1812,7 +1812,7 @@ iwx_poll_bit(struct iwx_softc *sc, int reg, uint32_t bits, uint32_t mask,
 	}
 }
 
-int
+static int
 iwx_nic_lock(struct iwx_softc *sc)
 {
 	if (sc->sc_nic_locks > 0) {
@@ -2279,7 +2279,7 @@ iwx_enable_rfkill_int(struct iwx_softc *sc)
 	    IWX_CSR_GP_CNTRL_REG_FLAG_RFKILL_WAKE_L1A_EN);
 }
 
-int
+static int
 iwx_check_rfkill(struct iwx_softc *sc)
 {
 	uint32_t v;
@@ -2461,7 +2461,7 @@ iwx_force_power_gating(struct iwx_softc *sc)
 	return err;
 }
 
-void
+static void
 iwx_apm_config(struct iwx_softc *sc)
 {
 	uint16_t lctl, cap;
@@ -2506,7 +2506,7 @@ iwx_apm_config(struct iwx_softc *sc)
  * e.g. after platform boot or shutdown.
  * NOTE:  This does not load uCode nor start the embedded processor
  */
-int
+static int
 iwx_apm_init(struct iwx_softc *sc)
 {
 	int err = 0;
@@ -2584,7 +2584,7 @@ iwx_apm_stop(struct iwx_softc *sc)
 	    IWX_CSR_GP_CNTRL_REG_FLAG_INIT_DONE);
 }
 
-void
+static void
 iwx_init_msix_hw(struct iwx_softc *sc)
 {
 	iwx_conf_msix_hw(sc, 0);
@@ -2759,7 +2759,7 @@ iwx_start_hw(struct iwx_softc *sc)
 	return 0;
 }
 
-void
+static void
 iwx_stop_device(struct iwx_softc *sc)
 {
 	// TODO
@@ -3321,7 +3321,7 @@ iwx_sta_rx_agg_baid_cfg_cmd(struct iwx_softc *sc, struct ieee80211_node *ni,
 	return 0;
 }
 
-void
+static void
 iwx_sta_rx_agg(struct iwx_softc *sc, struct ieee80211_node *ni, uint8_t tid,
     uint16_t ssn, uint16_t winsize, int timeout_val, int start)
 {
@@ -3408,7 +3408,7 @@ iwx_sta_tx_agg_start(struct iwx_softc *sc, struct ieee80211_node *ni,
 	sc->aggqid[tid] = qid;
 }
 
-void
+static void
 iwx_ba_rx_task(void *arg, int npending __unused)
 {
 	struct iwx_softc *sc = arg;
@@ -3445,7 +3445,7 @@ iwx_ba_rx_task(void *arg, int npending __unused)
 	IWX_UNLOCK(sc);
 }
 
-void
+static void
 iwx_ba_tx_task(void *arg, int npending __unused)
 {
 	struct iwx_softc *sc = arg;
@@ -3528,7 +3528,7 @@ iwx_flip_hw_address(uint32_t mac_addr0, uint32_t mac_addr1, uint8_t *dest)
 	dest[5] = hw_addr[0];
 }
 
-int
+static int
 iwx_nvm_get(struct iwx_softc *sc)
 {
 	struct iwx_nvm_get_info cmd = {};
@@ -3655,7 +3655,7 @@ iwx_load_firmware(struct iwx_softc *sc)
 	return err;
 }
 
-int
+static int
 iwx_start_fw(struct iwx_softc *sc)
 {
 	int err;
@@ -3683,7 +3683,7 @@ iwx_start_fw(struct iwx_softc *sc)
 	return iwx_load_firmware(sc);
 }
 
-int
+static int
 iwx_pnvm_handle_section(struct iwx_softc *sc, const uint8_t *data,
     size_t len)
 {
@@ -3793,7 +3793,7 @@ out:
 	return err;
 }
 
-int
+static int
 iwx_pnvm_parse(struct iwx_softc *sc, const uint8_t *data, size_t len)
 {
 	const struct iwx_ucode_tlv *tlv;
@@ -3832,7 +3832,7 @@ iwx_pnvm_parse(struct iwx_softc *sc, const uint8_t *data, size_t len)
 }
 
 /* Make AX210 firmware loading context point at PNVM image in DMA memory. */
-void
+static void
 iwx_ctxt_info_gen3_set_pnvm(struct iwx_softc *sc)
 {
 	struct iwx_prph_scratch *prph_scratch;
@@ -3854,7 +3854,7 @@ iwx_ctxt_info_gen3_set_pnvm(struct iwx_softc *sc)
  * The SKU of AX210 devices tells us which PNVM file section is needed.
  * Pre-AX210 devices store NVM data onboard.
  */
-int
+static int
 iwx_load_pnvm(struct iwx_softc *sc)
 {
 	const int wait_flags = IWX_PNVM_COMPLETE;
@@ -4135,7 +4135,7 @@ iwx_rxmq_get_signal_strength(struct iwx_softc *sc,
 	return MAX(energy_a, energy_b);
 }
 
-void
+static void
 iwx_rx_rx_phy_cmd(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
     struct iwx_rx_data *data)
 {
@@ -4275,7 +4275,7 @@ iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status)
 	return ret;
 }
 
-void
+static void
 iwx_rx_frame(struct iwx_softc *sc, struct mbuf *m, int chanidx,
     uint32_t rx_pkt_status, int is_shortpre, int rate_n_flags,
     uint32_t device_timestamp, uint8_t rssi)
@@ -4416,7 +4416,7 @@ printf("%s:%d if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);\n", __func__, __LINE__)
 	IWX_LOCK(sc);
 }
 
-void
+static void
 iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
     size_t maxlen)
 {
@@ -4672,7 +4672,7 @@ iwx_txd_done(struct iwx_softc *sc, struct iwx_tx_ring *ring,
 	txd->in = NULL;
 }
 
-void
+static void
 iwx_txq_advance(struct iwx_softc *sc, struct iwx_tx_ring *ring, uint16_t idx)
 {
  	struct iwx_tx_data *txd;
@@ -4692,7 +4692,7 @@ iwx_txq_advance(struct iwx_softc *sc, struct iwx_tx_ring *ring, uint16_t idx)
 	}
 }
 
-void
+static void
 iwx_rx_tx_cmd(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
     struct iwx_rx_data *data)
 {
@@ -5944,7 +5944,7 @@ iwx_drain_sta(struct iwx_softc *sc, struct iwx_node* in, int drain)
 	return err;
 }
 
-int
+static int
 iwx_flush_sta(struct iwx_softc *sc, struct iwx_node *in)
 {
 	int err;
@@ -6068,7 +6068,7 @@ iwx_power_update_device(struct iwx_softc *sc)
 	    IWX_POWER_TABLE_CMD, 0, sizeof(cmd), &cmd);
 }
 
-int
+static int
 iwx_enable_beacon_filter(struct iwx_softc *sc, struct iwx_node *in)
 {
 	struct iwx_beacon_filter_cmd cmd = {
@@ -6139,6 +6139,8 @@ iwx_add_sta_cmd(struct iwx_softc *sc, struct iwx_node *in, int update)
 	add_sta_cmd.add_modify = update ? 1 : 0;
 	add_sta_cmd.station_flags_msk
 	    |= htole32(IWX_STA_FLG_FAT_EN_MSK | IWX_STA_FLG_MIMO_EN_MSK);
+
+iwx look into sta info
 
 	if (in->in_ni.ni_flags & IEEE80211_NODE_HT) {
 		add_sta_cmd.station_flags_msk
@@ -7007,7 +7009,7 @@ iwx_mac_ctxt_cmd_fill_sta(struct iwx_softc *sc, struct iwx_node *in,
 	DPRINTF(("%s: assoc_id=%d\n", __func__, sta->assoc_id));
 }
 
-int
+static int
 iwx_mac_ctxt_cmd(struct iwx_softc *sc, struct iwx_node *in, uint32_t action,
     int assoc)
 {
@@ -7121,7 +7123,7 @@ iwx_enable_mgmt_queue(struct iwx_softc *sc)
 	return 0;
 }
 
-int
+static int
 iwx_disable_mgmt_queue(struct iwx_softc *sc)
 {
 	int err, cmd_ver;
@@ -7383,7 +7385,7 @@ iwx_rs_init_v4(struct iwx_softc *sc, struct iwx_node *in)
 	return iwx_send_cmd_pdu(sc, cmd_id, IWX_CMD_ASYNC, cmd_size, &cfg_cmd);
 }
 
-int
+static int
 iwx_rs_init(struct iwx_softc *sc, struct iwx_node *in)
 {
 	int cmd_ver;
@@ -7480,7 +7482,7 @@ iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 }
 #endif
 
-int
+static int
 iwx_phy_send_rlc(struct iwx_softc *sc, struct iwx_phy_ctxt *phyctxt,
     uint8_t chains_static, uint8_t chains_dynamic)
 {
@@ -7504,7 +7506,7 @@ iwx_phy_send_rlc(struct iwx_softc *sc, struct iwx_phy_ctxt *phyctxt,
 	return iwx_send_cmd_pdu(sc, cmd_id, 0, sizeof(cmd), &cmd);
 }
 
-int
+static int
 iwx_phy_ctxt_update(struct iwx_softc *sc, struct iwx_phy_ctxt *phyctxt,
     struct ieee80211_channel *chan, uint8_t chains_static,
     uint8_t chains_dynamic, uint32_t apply_time, uint8_t sco,
@@ -8130,7 +8132,7 @@ iwx_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 	return (err);
 }
 
-void
+static void
 iwx_endscan(struct iwx_softc *sc)
 {
         struct ieee80211com *ic = &sc->sc_ic;
@@ -8201,7 +8203,7 @@ iwx_sf_full_timeout[IWX_SF_NUM_SCENARIO][IWX_SF_NUM_TIMEOUT_TYPES] = {
 	},
 };
 
-void
+static void
 iwx_fill_sf_command(struct iwx_softc *sc, struct iwx_sf_cfg_cmd *sf_cmd,
     struct ieee80211_node *ni)
 {
@@ -8420,7 +8422,7 @@ iwx_send_temp_report_ths_cmd(struct iwx_softc *sc)
 	return err;
 }
 
-int
+static int
 iwx_init_hw(struct iwx_softc *sc)
 {
 	struct ieee80211com *ic = &sc->sc_ic;
@@ -8711,7 +8713,7 @@ iwx_stop(struct iwx_softc *sc)
 	sc->ba_tx.stop_tidmask = 0;
 }
 
-void
+static void
 iwx_watchdog(void *arg)
 {
 	struct iwx_softc *sc = arg;
@@ -9026,7 +9028,7 @@ do {									\
 	_var_ = (void *)((_pkt_)+1);					\
 } while (/*CONSTCOND*/0)
 
-int
+static int
 iwx_rx_pkt_valid(struct iwx_rx_packet *pkt)
 {
 	int qid, idx, code;
@@ -10798,7 +10800,7 @@ iwx_vap_create(struct ieee80211com *ic, const char name[IFNAMSIZ], int unit,
 	return vap;
 }
 
-void
+static void
 iwx_vap_delete(struct ieee80211vap *vap)
 {
 	struct iwx_vap *ivp = IWX_VAP(vap);
@@ -10808,7 +10810,7 @@ iwx_vap_delete(struct ieee80211vap *vap)
 	free(ivp, M_80211_VAP);
 }
 
-void
+static void
 iwx_parent(struct ieee80211com *ic)
 {
 	struct iwx_softc *sc = ic->ic_softc;
@@ -10824,7 +10826,7 @@ iwx_parent(struct ieee80211com *ic)
 	IWX_UNLOCK(sc);
 }
 
-int
+static int
 iwx_suspend(device_t dev)
 {
 	struct iwx_softc *sc = device_get_softc(dev);
@@ -10836,7 +10838,7 @@ iwx_suspend(device_t dev)
 	return (0);
 }
 
-int
+static int
 iwx_resume(device_t dev)
 {
 	struct iwx_softc *sc = device_get_softc(dev);
@@ -10858,7 +10860,7 @@ iwx_resume(device_t dev)
 	return (0);
 }
 
-void
+static void
 iwx_scan_start(struct ieee80211com *ic)
 {
 	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
@@ -10877,28 +10879,28 @@ iwx_scan_start(struct ieee80211com *ic)
 	return;
 }
 
-void
+static void
 iwx_update_mcast(struct ieee80211com *ic)
 {
 }
 
-void
+static void
 iwx_scan_curchan(struct ieee80211_scan_state *ss, unsigned long maxdwell)
 {
 }
 
-void
+static void
 iwx_scan_mindwell(struct ieee80211_scan_state *ss)
 {
 }
 
-void
+static void
 iwx_scan_end(struct ieee80211com *ic)
 {
 	iwx_endscan(ic->ic_softc);
 }
 
-void
+static void
 iwx_set_channel(struct ieee80211com *ic)
 {
 #if 0	// soon! from the fbsd iwx port
@@ -10910,7 +10912,7 @@ iwx_set_channel(struct ieee80211com *ic)
 #endif
 }
 
-void
+static void
 iwx_endscan_cb(void *arg, int pending)
 {
 	struct iwx_softc *sc = arg;
@@ -10920,13 +10922,13 @@ iwx_endscan_cb(void *arg, int pending)
 	ieee80211_scan_done(TAILQ_FIRST(&ic->ic_vaps));
 }
 
-int
+static int
 iwx_wme_update(struct ieee80211com *ic)
 {
 	return 0;
 }
 
-int
+static int
 iwx_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
     const struct ieee80211_bpf_params *params)
 {
@@ -10946,7 +10948,7 @@ iwx_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
 	}
 }
 
-int
+static int
 iwx_transmit(struct ieee80211com *ic, struct mbuf *m)
 {
 	struct iwx_softc *sc = ic->ic_softc;
@@ -10966,7 +10968,7 @@ iwx_transmit(struct ieee80211com *ic, struct mbuf *m)
 	return (0);
 }
 
-int
+static int
 iwx_ampdu_rx_start(struct ieee80211_node *ni, struct ieee80211_rx_ampdu *rap,
     int baparamset, int batimeout, int baseqctl)
 {
@@ -11005,13 +11007,13 @@ iwx_ampdu_rx_start(struct ieee80211_node *ni, struct ieee80211_rx_ampdu *rap,
 	return (0);
 }
 
-void
+static void
 iwx_ampdu_rx_stop(struct ieee80211_node *ni, struct ieee80211_rx_ampdu *rap)
 {
 	return;
 }
 
-int
+static int
 iwx_addba_request(struct ieee80211_node *ni, struct ieee80211_tx_ampdu *tap,
     int dialogtoken, int baparamset, int batimeout)
 {
@@ -11026,26 +11028,26 @@ iwx_addba_request(struct ieee80211_node *ni, struct ieee80211_tx_ampdu *tap,
 }
 
 
-int
+static int
 iwx_addba_response(struct ieee80211_node *ni, struct ieee80211_tx_ampdu *tap,
     int code, int baparamset, int batimeout)
 {
 	return 0;
 }
 
-void
+static void
 iwx_key_update_begin(struct ieee80211vap *vap)
 {
 	return;
 }
 
-void
+static void
 iwx_key_update_end(struct ieee80211vap *vap)
 {
 	return;
 }
 
-int
+static int
 iwx_key_alloc(struct ieee80211vap *vap, struct ieee80211_key *k,
 	ieee80211_keyix *keyix, ieee80211_keyix *rxkeyix)
 {
@@ -11075,7 +11077,7 @@ iwx_key_alloc(struct ieee80211vap *vap, struct ieee80211_key *k,
 	return 1;
 }
 
-int
+static int
 iwx_key_set(struct ieee80211vap *vap, const struct ieee80211_key *k)
 {
 	struct ieee80211com *ic = vap->iv_ic;
@@ -11145,13 +11147,13 @@ iwx_key_set(struct ieee80211vap *vap, const struct ieee80211_key *k)
 	return 1;
 }
 
-int
+static int
 iwx_key_delete(struct ieee80211vap *vap, const struct ieee80211_key *k)
 {
 	return 1;
 }
 
-void
+static void
 iwx_start(struct iwx_softc *sc)
 {
         struct ieee80211_node *ni;
