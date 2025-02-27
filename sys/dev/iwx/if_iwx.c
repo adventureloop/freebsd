@@ -4663,12 +4663,9 @@ iwx_txd_done(struct iwx_softc *sc, struct iwx_tx_ring *ring,
 {
 	bus_dmamap_sync(ring->data_dmat, txd->map, BUS_DMASYNC_POSTWRITE);
 	bus_dmamap_unload(ring->data_dmat, txd->map);
-	m_freem(txd->m);
-	txd->m = NULL;
 
-	KASSERT((txd->in), ("txd->in"));
-	// TODO RELEASE NODE?
-//	ieee80211_release_node(ic, &txd->in->in_ni);
+	ieee80211_tx_complete(&txd->in->in_ni, txd->m, 0);
+	txd->m = NULL;
 	txd->in = NULL;
 }
 
