@@ -422,8 +422,10 @@ static int	iwx_binding_cmd(struct iwx_softc *, struct iwx_node *, uint32_t);
 static uint8_t	iwx_get_vht_ctrl_pos(struct ieee80211com *, struct ieee80211_channel *);
 static int	iwx_phy_ctxt_cmd_uhb_v3_v4(struct iwx_softc *,
     struct iwx_phy_ctxt *, uint8_t, uint8_t, uint32_t, uint8_t, uint8_t, int);
-//int	iwx_phy_ctxt_cmd_v3_v4(struct iwx_softc *, struct iwx_phy_ctxt *,
-//	    uint8_t, uint8_t, uint32_t, uint8_t, uint8_t, int);
+#if 0
+static int	iwx_phy_ctxt_cmd_v3_v4(struct iwx_softc *, struct iwx_phy_ctxt *,
+    uint8_t, uint8_t, uint32_t, uint8_t, uint8_t, int);
+#endif
 static int	iwx_phy_ctxt_cmd(struct iwx_softc *, struct iwx_phy_ctxt *,
     uint8_t, uint8_t, uint32_t, uint32_t, uint8_t, uint8_t);
 static int	iwx_send_cmd(struct iwx_softc *, struct iwx_host_cmd *);
@@ -5007,66 +5009,68 @@ iwx_phy_ctxt_cmd_uhb_v3_v4(struct iwx_softc *sc, struct iwx_phy_ctxt *ctxt,
 	return iwx_send_cmd_pdu(sc, IWX_PHY_CONTEXT_CMD, 0, sizeof(cmd), &cmd);
 }
 
-//int
-//iwx_phy_ctxt_cmd_v3_v4(struct iwx_softc *sc, struct iwx_phy_ctxt *ctxt,
-//    uint8_t chains_static, uint8_t chains_dynamic, uint32_t action, uint8_t sco,
-//    uint8_t vht_chan_width, int cmdver)
-//{
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct iwx_phy_context_cmd cmd;
-//	uint8_t active_cnt, idle_cnt;
-//	struct ieee80211_channel *chan = ctxt->channel;
-//
-//	memset(&cmd, 0, sizeof(cmd));
-//	cmd.id_and_color = htole32(IWX_FW_CMD_ID_AND_COLOR(ctxt->id,
-//	    ctxt->color));
-//	cmd.action = htole32(action);
-//
-//	if (IEEE80211_IS_CHAN_2GHZ(ctxt->channel) ||
-//	    !isset(sc->sc_enabled_capa, IWX_UCODE_TLV_CAPA_CDB_SUPPORT))
-//		cmd.lmac_id = htole32(IWX_LMAC_24G_INDEX);
-//	else
-//		cmd.lmac_id = htole32(IWX_LMAC_5G_INDEX);
-//
-//	cmd.ci.band = IEEE80211_IS_CHAN_2GHZ(chan) ?
-//	    IWX_PHY_BAND_24 : IWX_PHY_BAND_5;
-//	cmd.ci.channel = ieee80211_chan2ieee(ic, chan);
-//	if (vht_chan_width == IEEE80211_VHTOP0_CHAN_WIDTH_80) {
-//		cmd.ci.ctrl_pos = iwx_get_vht_ctrl_pos(ic, chan);
-//		cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE80;
-//	} else if (chan->ic_flags & IEEE80211_CHAN_40MHZ) {
-//		if (sco == IEEE80211_HTOP0_SCO_SCA) {
-//			/* secondary chan above -> control chan below */
-//			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_BELOW;
-//			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE40;
-//		} else if (sco == IEEE80211_HTOP0_SCO_SCB) {
-//			/* secondary chan below -> control chan above */
-//			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_ABOVE;
-//			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE40;
-//		} else {
-//			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE20;
-//			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_BELOW;
-//		}
-//	} else {
-//		cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE20;
-//		cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_BELOW;
-//	}
-//
-//	if (cmdver < 4 && iwx_lookup_cmd_ver(sc, IWX_DATA_PATH_GROUP,
-//	    IWX_RLC_CONFIG_CMD) != 2) {
-//		idle_cnt = chains_static;
-//		active_cnt = chains_dynamic;
-//		cmd.rxchain_info = htole32(iwx_fw_valid_rx_ant(sc) <<
-//		    IWX_PHY_RX_CHAIN_VALID_POS);
-//		cmd.rxchain_info |= htole32(idle_cnt <<
-//		    IWX_PHY_RX_CHAIN_CNT_POS);
-//		cmd.rxchain_info |= htole32(active_cnt <<
-//		    IWX_PHY_RX_CHAIN_MIMO_CNT_POS);
-//	}
-//
-//	return iwx_send_cmd_pdu(sc, IWX_PHY_CONTEXT_CMD, 0, sizeof(cmd), &cmd);
-//}
-//
+#if 0
+int
+iwx_phy_ctxt_cmd_v3_v4(struct iwx_softc *sc, struct iwx_phy_ctxt *ctxt,
+    uint8_t chains_static, uint8_t chains_dynamic, uint32_t action, uint8_t sco,
+    uint8_t vht_chan_width, int cmdver)
+{
+	struct ieee80211com *ic = &sc->sc_ic;
+	struct iwx_phy_context_cmd cmd;
+	uint8_t active_cnt, idle_cnt;
+	struct ieee80211_channel *chan = ctxt->channel;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.id_and_color = htole32(IWX_FW_CMD_ID_AND_COLOR(ctxt->id,
+	    ctxt->color));
+	cmd.action = htole32(action);
+
+	if (IEEE80211_IS_CHAN_2GHZ(ctxt->channel) ||
+	    !isset(sc->sc_enabled_capa, IWX_UCODE_TLV_CAPA_CDB_SUPPORT))
+		cmd.lmac_id = htole32(IWX_LMAC_24G_INDEX);
+	else
+		cmd.lmac_id = htole32(IWX_LMAC_5G_INDEX);
+
+	cmd.ci.band = IEEE80211_IS_CHAN_2GHZ(chan) ?
+	    IWX_PHY_BAND_24 : IWX_PHY_BAND_5;
+	cmd.ci.channel = ieee80211_chan2ieee(ic, chan);
+	if (vht_chan_width == IEEE80211_VHTOP0_CHAN_WIDTH_80) {
+		cmd.ci.ctrl_pos = iwx_get_vht_ctrl_pos(ic, chan);
+		cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE80;
+	} else if (chan->ic_flags & IEEE80211_CHAN_40MHZ) {
+		if (sco == IEEE80211_HTOP0_SCO_SCA) {
+			/* secondary chan above -> control chan below */
+			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_BELOW;
+			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE40;
+		} else if (sco == IEEE80211_HTOP0_SCO_SCB) {
+			/* secondary chan below -> control chan above */
+			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_ABOVE;
+			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE40;
+		} else {
+			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE20;
+			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_BELOW;
+		}
+	} else {
+		cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE20;
+		cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_BELOW;
+	}
+
+	if (cmdver < 4 && iwx_lookup_cmd_ver(sc, IWX_DATA_PATH_GROUP,
+	    IWX_RLC_CONFIG_CMD) != 2) {
+		idle_cnt = chains_static;
+		active_cnt = chains_dynamic;
+		cmd.rxchain_info = htole32(iwx_fw_valid_rx_ant(sc) <<
+		    IWX_PHY_RX_CHAIN_VALID_POS);
+		cmd.rxchain_info |= htole32(idle_cnt <<
+		    IWX_PHY_RX_CHAIN_CNT_POS);
+		cmd.rxchain_info |= htole32(active_cnt <<
+		    IWX_PHY_RX_CHAIN_MIMO_CNT_POS);
+	}
+
+	return iwx_send_cmd_pdu(sc, IWX_PHY_CONTEXT_CMD, 0, sizeof(cmd), &cmd);
+}
+#endif
+
 static int
 iwx_phy_ctxt_cmd(struct iwx_softc *sc, struct iwx_phy_ctxt *ctxt,
     uint8_t chains_static, uint8_t chains_dynamic, uint32_t action,
@@ -5092,10 +5096,12 @@ iwx_phy_ctxt_cmd(struct iwx_softc *sc, struct iwx_phy_ctxt *ctxt,
 		return iwx_phy_ctxt_cmd_uhb_v3_v4(sc, ctxt, chains_static,
 		    chains_dynamic, action, sco, vht_chan_width, cmdver);
 	} else
-		panic("old hardware");
+		panic("Unsupported old hardware contact thj@");
 
-//	return iwx_phy_ctxt_cmd_v3_v4(sc, ctxt, chains_static, chains_dynamic,
-//	    action, sco, vht_chan_width, cmdver);
+#if 0
+	return iwx_phy_ctxt_cmd_v3_v4(sc, ctxt, chains_static, chains_dynamic,
+	    action, sco, vht_chan_width, cmdver);
+#endif
 }
 
 static int
