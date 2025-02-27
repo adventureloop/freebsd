@@ -6454,29 +6454,26 @@ iwx_fill_probe_req(struct iwx_softc *sc, struct iwx_scan_probe_req *preq)
 			frm = ieee80211_add_xrates(frm, rs);
 		preq->band_data[1].len = htole16(frm - pos);
 		remain -= frm - pos;
-		// TODO
-//		if (ic->ic_flags & IEEE80211_F_VHTON) {
+		if (vap->iv_vht_flags & IEEE80211_FVHT_VHT) {
 			if (remain < 14)
 				return ENOBUFS;
-//			frm = ieee80211_add_vhtcap(frm, ic);
 			frm = ieee80211_add_vhtcap(frm, vap->iv_bss);
 			remain -= frm - pos;
 			preq->band_data[1].len = htole16(frm - pos);
-//		}
+		}
 	}
 
 	/* Send 11n IEs on both 2GHz and 5GHz bands. */
 	preq->common_data.offset = htole16(frm - (uint8_t *)wh);
 	pos = frm;
-	// TODO
-	printf("%s:%d LOOK HERE!\n", __func__, __LINE__);
-//	if (ic->ic_flags & IEEE80211_F_HTON) {
+//	if (ic->ic_flags_ht & IEEE80211_FHT_HT) {
+	if (vap->iv_flags_ht & IEEE80211_FHT_HT) {
 		if (remain < 28)
 			return ENOBUFS;
 		frm = ieee80211_add_htcap(frm, vap->iv_bss);
 		/* XXX add WME info? */
-//		remain -= frm - pos;
-//	}
+		remain -= frm - pos;
+	}
 
 	preq->common_data.len = htole16(frm - pos);
 
