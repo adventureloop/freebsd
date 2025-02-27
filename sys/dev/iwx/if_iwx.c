@@ -6317,14 +6317,16 @@ iwx_rm_sta(struct iwx_softc *sc, struct iwx_node *in)
 	sc->ba_tx.stop_tidmask = 0;
 	for (i = IWX_FIRST_AGG_TX_QUEUE; i < IWX_LAST_AGG_TX_QUEUE; i++)
 		sc->qenablemsk &= ~(1 << i);
-	//TODO agg
-//	for (i = 0; i < IEEE80211_NUM_TID; i++) {
-//		struct ieee80211_tx_ba *ba = &ni->ni_tx_ba[i];
-//		if (ba->ba_state != IEEE80211_BA_AGREED)
-//			continue;
-//		ieee80211_delba_request(ic, ni, 0, 1, i);
-//	}
-	// Clear ampdu rx state (GOS-1525)
+
+#if 0
+	for (i = 0; i < IEEE80211_NUM_TID; i++) {
+		struct ieee80211_tx_ba *ba = &ni->ni_tx_ba[i];
+		if (ba->ba_state != IEEE80211_BA_AGREED)
+			continue;
+		ieee80211_delba_request(ic, ni, 0, 1, i);
+	}
+#endif
+	/* Clear ampdu rx state (GOS-1525) */
 	for (i = 0; i < IWX_MAX_TID_COUNT; i++) {
 		struct iwx_rx_ba *ba = &sc->ni_rx_ba[i];
 		ba->ba_flags = 0;
