@@ -2768,9 +2768,6 @@ iwx_start_hw(struct iwx_softc *sc)
 static void
 iwx_stop_device(struct iwx_softc *sc)
 {
-	// TODO
-//	struct ieee80211com *ic = &sc->sc_ic;
-//	struct ieee80211_node *ni = ic->ic_bss;
 	int i;
 
 	iwx_disable_interrupts(sc);
@@ -2780,14 +2777,15 @@ iwx_stop_device(struct iwx_softc *sc)
 	iwx_reset_rx_ring(sc, &sc->rxq);
 	for (i = 0; i < nitems(sc->txq); i++)
 		iwx_reset_tx_ring(sc, &sc->txq[i]);
-//	for (i = 0; i < IEEE80211_NUM_TID; i++) {
-//		// TODO
-//		struct ieee80211_tx_ba *ba = &ni->ni_tx_ba[i];
-//		if (ba->ba_state != IEEE80211_BA_AGREED)
-//			continue;
-//		ieee80211_delba_request(ic, ni, 0, 1, i);
-//	}
-
+#if 0
+	/* XXX-THJ: Tidy up BA state on stop
+	for (i = 0; i < IEEE80211_NUM_TID; i++) {
+		struct ieee80211_tx_ba *ba = &ni->ni_tx_ba[i];
+		if (ba->ba_state != IEEE80211_BA_AGREED)
+			continue;
+		ieee80211_delba_request(ic, ni, 0, 1, i);
+	}
+#endif
 	/* Make sure (redundant) we've released our request to stay awake */
 	IWX_CLRBITS(sc, IWX_CSR_GP_CNTRL,
 	    IWX_CSR_GP_CNTRL_REG_FLAG_MAC_ACCESS_REQ);
