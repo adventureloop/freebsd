@@ -6424,7 +6424,6 @@ iwx_fill_probe_req(struct iwx_softc *sc, struct iwx_scan_probe_req *preq)
 	/* Send 11n IEs on both 2GHz and 5GHz bands. */
 	preq->common_data.offset = htole16(frm - (uint8_t *)wh);
 	pos = frm;
-//	if (ic->ic_flags_ht & IEEE80211_FHT_HT) {
 	if (vap->iv_flags_ht & IEEE80211_FHT_HT) {
 		if (remain < 28)
 			return ENOBUFS;
