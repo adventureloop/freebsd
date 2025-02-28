@@ -5765,9 +5765,7 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 		sc->qfullmsk |= 1 << ring->qid;
 	}
 
-	//TODO: timer
-//	if (ic->ic_if.if_flags & IFF_UP)
-		sc->sc_tx_timer[ring->qid] = 15;
+	sc->sc_tx_timer[ring->qid] = 15;
 
 	return 0;
 }
