@@ -447,7 +447,6 @@ static void	iwx_tx_update_byte_tbl(struct iwx_softc *, struct iwx_tx_ring *, int
 static int	iwx_tx(struct iwx_softc *, struct mbuf *,
     struct ieee80211_node *);
 static int	iwx_flush_sta_tids(struct iwx_softc *, int, uint16_t);
-static int	iwx_wait_tx_queues_empty(struct iwx_softc *);
 static int	iwx_drain_sta(struct iwx_softc *sc, struct iwx_node *, int);
 static int	iwx_flush_sta(struct iwx_softc *, struct iwx_node *);
 static int	iwx_beacon_filter_send_cmd(struct iwx_softc *,
@@ -5844,33 +5843,6 @@ out:
 #define IWX_FLUSH_WAIT_MS	2000
 
 static int
-iwx_wait_tx_queues_empty(struct iwx_softc *sc)
-{
-	int i/*, err*/;
-
-	for (i = 0; i < nitems(sc->txq); i++) {
-		struct iwx_tx_ring *ring = &sc->txq[i];
-
-		if (i == IWX_DQA_CMD_QUEUE)
-			continue;
-
-		DPRINTF(("%s: ring->queued=%i\n", __func__, ring->queued));
-//		while (ring->queued > 0) {
-////			err = tsleep_nsec(ring, 0, "iwxflush",
-////			    MSEC_TO_NSEC(IWX_FLUSH_WAIT_MS));
-////			err = tsleep(ring, 0, "iwxflush",
-////			    IWX_FLUSH_WAIT_MS);
-//			err = msleep(ring, &sc->sc_mtx, 0, "iwxflush",
-//			    IWX_FLUSH_WAIT_MS);
-//			if (err)
-//				return err;
-//		}
-	}
-
-	return 0;
-}
-
-static int
 iwx_drain_sta(struct iwx_softc *sc, struct iwx_node* in, int drain)
 {
 	struct iwx_add_sta_cmd cmd;
@@ -5927,12 +5899,10 @@ iwx_flush_sta(struct iwx_softc *sc, struct iwx_node *in)
 		goto done;
 	}
 
-	err = iwx_wait_tx_queues_empty(sc);
-	if (err) {
-		printf("%s: Could not empty Tx queues (error %d)\n",
-		    DEVNAME(sc), err);
-		goto done;
-	}
+	/*
+	 * XXX-THJ: iwx_wait_tx_queues_empty was here, but it was a nope in the
+	 * fc drive rand has has been replaced in OpenBSD.
+	 */
 
 	err = iwx_drain_sta(sc, in, 0);
 done:
