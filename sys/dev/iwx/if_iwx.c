@@ -5590,16 +5590,24 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 	if (IEEE80211_QOS_HAS_SEQ(wh) && (sc->sc_flags & IWX_FLAG_AMPDUTX)) {
 		uint16_t qos = ieee80211_gettid(wh);
 		uint8_t tid = qos & IEEE80211_QOS_TID;
-//		struct ieee80211_tx_ba *ba;
-//		ba = &ni->ni_tx_ba[tid];
+#if 0
+		struct ieee80211_tx_ba *ba;
+		ba = &ni->ni_tx_ba[tid];
 
 		if (!IEEE80211_IS_MULTICAST(wh->i_addr1) &&
 		    type == IEEE80211_FC0_TYPE_DATA &&
 		    subtype != IEEE80211_FC0_SUBTYPE_NODATA &&
-//		    subtype != IEEE80211_FC0_SUBTYPE_BAR &&
+		    subtype != IEEE80211_FC0_SUBTYPE_BAR &&
 		    sc->aggqid[tid] != 0  /*&&
 		    ba->ba_state == IEEE80211_BA_AGREED*/) {
 			qid = sc->aggqid[tid];
+#else
+		if (!IEEE80211_IS_MULTICAST(wh->i_addr1) &&
+		    type == IEEE80211_FC0_TYPE_DATA &&
+		    subtype != IEEE80211_FC0_SUBTYPE_NODATA &&
+		    sc->aggqid[tid] != 0) {
+			qid = sc->aggqid[tid];
+#endif
 		}
 	}
 
