@@ -7328,7 +7328,6 @@ iwx_rs_init(struct iwx_softc *sc, struct iwx_node *in)
 		return iwx_rs_init_v3(sc, in);
 }
 
-#if 1
 static void
 iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 {
@@ -7410,7 +7409,6 @@ iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 		    "%s:%d new rate %d\n", __func__, __LINE__, ni->ni_txrate);
 	}
 }
-#endif
 
 static int
 iwx_phy_send_rlc(struct iwx_softc *sc, struct iwx_phy_ctxt *phyctxt,
