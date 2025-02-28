@@ -496,7 +496,6 @@ static uint16_t iwx_rs_vht_rates(struct iwx_softc *, struct ieee80211_node *, in
 static int	iwx_rs_init_v3(struct iwx_softc *, struct iwx_node *);
 static int	iwx_rs_init_v4(struct iwx_softc *, struct iwx_node *);
 static int	iwx_rs_init(struct iwx_softc *, struct iwx_node *);
-//int	iwx_enable_data_tx_queues(struct iwx_softc *);
 static int	iwx_phy_send_rlc(struct iwx_softc *, struct iwx_phy_ctxt *,
 	    uint8_t, uint8_t);
 static int	iwx_phy_ctxt_update(struct iwx_softc *, struct iwx_phy_ctxt *,
