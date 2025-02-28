@@ -5638,22 +5638,7 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 		ieee80211_radiotap_tx(vap, m);
 	}
 
-//	if (wh->i_fc[1] & IEEE80211_FC1_PROTECTED) {
-//                k = ieee80211_get_txkey(ic, wh, ni);
-//		if (k->k_cipher != IEEE80211_CIPHER_CCMP) {
-//			if ((m = ieee80211_encrypt(ic, m, k)) == NULL)
-//				return ENOBUFS;
-//			/* 802.11 header may have moved. */
-//			wh = mtod(m, struct ieee80211_frame *);
-//			flags |= IWX_TX_FLAGS_ENCRYPT_DIS;
-//		} else {
-//			k->k_tsc++;
-//			/* Hardware increments PN internally and adds IV. */
-//		}
-//	} else
-//		flags |= IWX_TX_FLAGS_ENCRYPT_DIS;
 	if (wh->i_fc[1] & IEEE80211_FC1_PROTECTED) {
-//		XXX-THJ This needs compared with iwx
 		k = ieee80211_crypto_get_txkey(ni, m);
 		if (k == NULL) {
 			printf("%s: k is NULL!\n", __func__);
