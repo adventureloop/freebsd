@@ -4785,7 +4785,6 @@ iwx_rx_compressed_ba(struct iwx_softc *sc, struct iwx_rx_packet *pkt)
 	if (ba_res->sta_id != IWX_STATION_ID)
 		return;
 
-//	ni = ic->ic_bss;
 	in = (void *)ni;
 
 	tfd_cnt = le16toh(ba_res->tfd_cnt);
@@ -4809,10 +4808,11 @@ iwx_rx_compressed_ba(struct iwx_softc *sc, struct iwx_rx_packet *pkt)
 
 		ring = &sc->txq[qid];
 
-//		ba = &ni->ni_tx_ba[tid];
-//		if (ba->ba_state != IEEE80211_BA_AGREED)
-//			continue;
-
+#if 0
+		ba = &ni->ni_tx_ba[tid];
+		if (ba->ba_state != IEEE80211_BA_AGREED)
+			continue;
+#endif
 		idx = le16toh(ba_tfd->tfd_index);
 		sc->sc_tx_timer[qid] = 0;
 		iwx_txq_advance(sc, ring, idx);
