@@ -10066,8 +10066,6 @@ iwx_find_device_cfg(struct iwx_softc *sc)
 	uint16_t sdev_id;
 
 	sdev_id = pci_get_device(sc->sc_dev);
-	sdev_id = 36;		// TODO-THJ: why is this a static assignment?
-	printf("%s:%d LOOK HERE!\n", __func__, __LINE__);
 	mac_type = IWX_CSR_HW_REV_TYPE(sc->sc_hw_rev);
 	mac_step = IWX_CSR_HW_REV_STEP(sc->sc_hw_rev << 2);
 	rf_type = IWX_CSR_HW_RFID_TYPE(sc->sc_hw_rf_id);
