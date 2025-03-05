@@ -8489,14 +8489,6 @@ iwx_stop(struct iwx_softc *sc)
 
 	/* Reset soft state. */
 	sc->sc_generation++;
-
-//	for (i = 0; i < nitems(sc->sc_cmd_resp_pkt); i++) {
-//		free(sc->sc_cmd_resp_pkt[i], M_DEVBUF, sc->sc_cmd_resp_len[i]);
-//		sc->sc_cmd_resp_pkt[i] = NULL;
-//		sc->sc_cmd_resp_len[i] = 0;
-//	}
-//	ifq_clr_oactive(&ifp->if_snd);
-//
 	ivp->phy_ctxt = NULL;
 
 	sc->sc_flags &= ~(IWX_FLAG_SCANNING | IWX_FLAG_BGSCAN);
