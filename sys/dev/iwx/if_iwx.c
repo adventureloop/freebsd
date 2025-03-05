@@ -6847,23 +6847,19 @@ iwx_mac_ctxt_cmd_common(struct iwx_softc *sc, struct iwx_node *in,
 	}
 
 	if (ni->ni_flags & IEEE80211_NODE_HT) {
-#if 0
-		// XXX-THJ TODO
-		enum ieee80211_htprot htprot =
-		    (ni->ni_htop1 & IEEE80211_HTOP1_PROT_MASK);
-		switch (htprot) {
-		case IEEE80211_HTPROT_NONE:
+		switch (vap->iv_curhtprotmode) {
+		case IEEE80211_HTINFO_OPMODE_PURE:
 			break;
-		case IEEE80211_HTPROT_NONMEMBER:
-		case IEEE80211_HTPROT_NONHT_MIXED:
+		case IEEE80211_HTINFO_OPMODE_PROTOPT:
+		case IEEE80211_HTINFO_OPMODE_MIXED:
 			cmd->protection_flags |=
 			    htole32(IWX_MAC_PROT_FLG_HT_PROT |
 			    IWX_MAC_PROT_FLG_FAT_PROT);
 			break;
-		case IEEE80211_HTPROT_20MHZ:
+		case IEEE80211_HTINFO_OPMODE_HT20PR:
 			if (in->in_phyctxt &&
-			    (in->in_phyctxt->sco == IEEE80211_HTOP0_SCO_SCA ||
-			    in->in_phyctxt->sco == IEEE80211_HTOP0_SCO_SCB)) {
+			    (in->in_phyctxt->sco == IEEE80211_HTINFO_2NDCHAN_ABOVE ||
+			    in->in_phyctxt->sco == IEEE80211_HTINFO_2NDCHAN_BELOW)) {
 				cmd->protection_flags |=
 				    htole32(IWX_MAC_PROT_FLG_HT_PROT |
 				    IWX_MAC_PROT_FLG_FAT_PROT);
@@ -6872,15 +6868,12 @@ iwx_mac_ctxt_cmd_common(struct iwx_softc *sc, struct iwx_node *in,
 		default:
 			break;
 		}
-
-#endif
 		cmd->qos_flags |= htole32(IWX_MAC_QOS_FLG_TGN);
 		DPRINTF(("%s: === IWX_MAC_QOS_FLG_TGN\n", __func__));
 	}
-#if 0
+
 	if (ic->ic_flags & IEEE80211_F_USEPROT)
 		cmd->protection_flags |= htole32(IWX_MAC_PROT_FLG_TGG_PROTECT);
-#endif
 	cmd->filter_flags = htole32(IWX_MAC_FILTER_ACCEPT_GRP);
 #undef IWX_EXP2
 }
