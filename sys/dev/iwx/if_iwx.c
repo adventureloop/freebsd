@@ -6885,44 +6885,27 @@ iwx_mac_ctxt_cmd_fill_sta(struct iwx_softc *sc, struct iwx_node *in,
 	struct ieee80211_node *ni = &in->in_ni;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
-//	uint32_t dtim_off;
+	uint32_t dtim_off;
 	uint64_t tsf;
-	int dtim_period, dtim_count;
-	uint32_t dtim_offs;
+	int dtim_period;
 
-//	dtim_off = ni->ni_dtimcount * ni->ni_intval * IEEE80211_DUR_TU;
-//	memcpy(&tsf, ni->ni_tstamp, sizeof(tsf));
-//	tsf = letoh64(tsf);
+	dtim_off = ni->ni_dtim_count * ni->ni_intval * IEEE80211_DUR_TU;
 	tsf = le64toh(ni->ni_tstamp.tsf);
 	dtim_period = vap->iv_dtim_period;
-	dtim_count = vap->iv_dtim_count;
-	// XXX convert to usecs? (*=1024)
-	dtim_offs = dtim_count * ni->ni_intval;
-//	dtim_offs *= 1024;
 
 	sta->is_assoc = htole32(assoc);
-	DPRINTF(("%s: sta_is_assoc=%d\n", __func__, sta->is_assoc));
+
 	if (assoc) {
-//		sta->dtim_time = htole32(ni->ni_rstamp + dtim_off);
-		sta->dtim_time = htole32(tsf + dtim_offs);
-		DPRINTF(("%s: dtim_time=%u\n", __func__, sta->dtim_time));
-//		sta->dtim_tsf = htole64(tsf + dtim_off);
-		sta->dtim_tsf = htole64(tsf + dtim_offs);
-		DPRINTF(("%s: dtim_tsf=%lu\n", __func__, sta->dtim_tsf));
+		sta->dtim_time = htole32(tsf + dtim_off);
+		sta->dtim_tsf = htole64(tsf + dtim_off);
 		// XXX: unset in iwm
-//		sta->assoc_beacon_arrive_time = htole32(ni->ni_rstamp);
 		sta->assoc_beacon_arrive_time = 0;
-		DPRINTF(("%s: sta->assoc_beacon_arrive_time =%u\n", __func__, sta->assoc_beacon_arrive_time ));
 	}
 	sta->bi = htole32(ni->ni_intval);
-	DPRINTF(("%s: bi=%d\n", __func__, sta->bi));
-//	sta->dtim_interval = htole32(ni->ni_intval * ni->ni_dtimperiod);
 	sta->dtim_interval = htole32(ni->ni_intval * dtim_period);
-	DPRINTF(("%s: dtim_interval=%d\n", __func__, sta->dtim_interval));
 	sta->data_policy = htole32(0);
 	sta->listen_interval = htole32(10);
 	sta->assoc_id = htole32(ni->ni_associd);
-	DPRINTF(("%s: assoc_id=%d\n", __func__, sta->assoc_id));
 }
 
 static int
