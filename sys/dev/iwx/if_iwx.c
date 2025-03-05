@@ -5589,6 +5589,10 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 		uint16_t qos = ieee80211_gettid(wh);
 		uint8_t tid = qos & IEEE80211_QOS_TID;
 #if 0
+		/*
+		 * XXX-THJ: TODO when we enable ba we need to manage the
+		 * mappings
+		 */
 		struct ieee80211_tx_ba *ba;
 		ba = &ni->ni_tx_ba[tid];
 
