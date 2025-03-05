@@ -6083,41 +6083,23 @@ iwx_add_sta_cmd(struct iwx_softc *sc, struct iwx_node *in, int update)
 
 		if (iwx_mimo_enabled(sc)) {
 			if (ni->ni_flags & IEEE80211_NODE_VHT) {
-//				uint16_t rx_mcs = (in->in_ni.ni_vht_rxmcs &
-//				    IEEE80211_VHT_MCS_FOR_SS_MASK(2)) >>
-//				    IEEE80211_VHT_MCS_FOR_SS_SHIFT(2);
-//				if (rx_mcs != IEEE80211_VHT_MCS_SS_NOT_SUPP) {
-					add_sta_cmd.station_flags |=
-					    htole32(IWX_STA_FLG_MIMO_EN_MIMO2);
-//				}
-//			} else {
-//				if (in->in_ni.ni_rxmcs[1] != 0) {
-//					add_sta_cmd.station_flags |=
-//					    htole32(IWX_STA_FLG_MIMO_EN_MIMO2);
-//				}
-//				if (in->in_ni.ni_rxmcs[2] != 0) {
-//					add_sta_cmd.station_flags |=
-//					    htole32(IWX_STA_FLG_MIMO_EN_MIMO3);
-//				}
-			}
-			int hasmimo = 0;
-			for (i = 0; i < htrs->rs_nrates; i++) {
-				if (htrs->rs_rates[i] > 7) {
-					hasmimo = 1;
-					break;
-				}
-			}
-			if (hasmimo) {
 				add_sta_cmd.station_flags |=
 				    htole32(IWX_STA_FLG_MIMO_EN_MIMO2);
+			} else {
+				int hasmimo = 0;
+				for (i = 0; i < htrs->rs_nrates; i++) {
+					if (htrs->rs_rates[i] > 7) {
+						hasmimo = 1;
+						break;
+					}
+				}
+				if (hasmimo) {
+					add_sta_cmd.station_flags |=
+					    htole32(IWX_STA_FLG_MIMO_EN_MIMO2);
+				}
 			}
 		}
 
-//		if (IEEE80211_CHAN_40MHZ_ALLOWED(in->in_ni.ni_chan) &&
-//		    ieee80211_node_supports_ht_chan40(&in->in_ni)) {
-//			add_sta_cmd.station_flags |= htole32(
-//			    IWX_STA_FLG_FAT_EN_40MHZ);
-//		}
 		if (ni->ni_flags & IEEE80211_NODE_HT &&
 		    IEEE80211_IS_CHAN_HT40(ni->ni_chan)) {
 			add_sta_cmd.station_flags |= htole32(
@@ -6126,20 +6108,13 @@ iwx_add_sta_cmd(struct iwx_softc *sc, struct iwx_node *in, int update)
 
 
 		if (ni->ni_flags & IEEE80211_NODE_VHT) {
-//			if (IEEE80211_CHAN_80MHZ_ALLOWED(in->in_ni.ni_chan) &&
-//			    ieee80211_node_supports_vht_chan80(&in->in_ni)) {
 			if (IEEE80211_IS_CHAN_VHT80(ni->ni_chan)) {
 				add_sta_cmd.station_flags |= htole32(
 				    IWX_STA_FLG_FAT_EN_80MHZ);
 			}
-//			aggsize = (in->in_ni.ni_vhtcaps &
-//			    IEEE80211_VHTCAP_MAX_AMPDU_LEN_MASK) >>
-//			    IEEE80211_VHTCAP_MAX_AMPDU_LEN_SHIFT;
-			// TODO:misha get real ampdu size
+			// XXX-misha: TODO get real ampdu size
 			aggsize = max_aggsize;
 		} else {
-//			aggsize = (in->in_ni.ni_ampdu_param &
-//			    IEEE80211_AMPDU_PARAM_LE);
 			aggsize = _IEEE80211_MASKSHIFT(le16toh(ni->ni_htparam),
 			    IEEE80211_HTCAP_MAXRXAMPDU);
 		}
@@ -6150,26 +6125,6 @@ iwx_add_sta_cmd(struct iwx_softc *sc, struct iwx_node *in, int update)
 		    IWX_STA_FLG_MAX_AGG_SIZE_SHIFT) &
 		    IWX_STA_FLG_MAX_AGG_SIZE_MSK);
 
-//		switch (in->in_ni.ni_ampdu_param & IEEE80211_AMPDU_PARAM_SS) {
-//		case IEEE80211_AMPDU_PARAM_SS_2:
-//			add_sta_cmd.station_flags
-//			    |= htole32(IWX_STA_FLG_AGG_MPDU_DENS_2US);
-//			break;
-//		case IEEE80211_AMPDU_PARAM_SS_4:
-//			add_sta_cmd.station_flags
-//			    |= htole32(IWX_STA_FLG_AGG_MPDU_DENS_4US);
-//			break;
-//		case IEEE80211_AMPDU_PARAM_SS_8:
-//			add_sta_cmd.station_flags
-//			    |= htole32(IWX_STA_FLG_AGG_MPDU_DENS_8US);
-//			break;
-//		case IEEE80211_AMPDU_PARAM_SS_16:
-//			add_sta_cmd.station_flags
-//			    |= htole32(IWX_STA_FLG_AGG_MPDU_DENS_16US);
-//			break;
-//		default:
-//			break;
-//		}
 		switch (_IEEE80211_MASKSHIFT(le16toh(ni->ni_htparam),
 		    IEEE80211_HTCAP_MPDUDENSITY)) {
 		case IEEE80211_HTCAP_MPDUDENSITY_2:
