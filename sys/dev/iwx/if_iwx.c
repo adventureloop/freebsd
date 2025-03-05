@@ -4232,8 +4232,6 @@ iwx_ccmp_decap(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni,
 static int
 iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status)
 {
-	struct ieee80211com *ic = &sc->sc_ic;
-	struct ifnet *ifp = IC2IFP(ic);
 	struct ieee80211_frame *wh;
 	int ret = 0;
 	uint8_t type, subtype;
@@ -4272,8 +4270,6 @@ iwx_rx_hwdecrypt(struct iwx_softc *sc, struct mbuf *m, uint32_t rx_pkt_status)
 		}
 	} 
 	out:
-	if (ret)
-		if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);
 	return ret;
 }
 
@@ -4314,11 +4310,6 @@ iwx_rx_frame(struct iwx_softc *sc, struct mbuf *m, int chanidx,
 #if 0	/* XXX hw decrypt */
 	if ((rxi->rxi_flags & IEEE80211_RXI_HWDEC) &&
 	    iwx_ccmp_decap(sc, m, ni, rxi) != 0) {
-#if 0
-		ifp->if_ierrors++;
-#else
-printf("%s:%d if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);\n", __func__, __LINE__);
-#endif
 		m_freem(m);
 		ieee80211_release_node(ic, ni);
 		return;
@@ -8531,7 +8522,6 @@ iwx_watchdog(void *arg)
 				iwx_nic_error(sc);
 				iwx_dump_driver_status(sc);
 				ieee80211_restart_all(ic);
-//				ifp->if_oerrors++;
 				return;
 			}
 		}
@@ -8877,7 +8867,6 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 		if (code == IWX_REPLY_RX_MPDU_CMD && ++nmpdu == 1) {
 			/* Take mbuf m0 off the RX ring. */
 			if (iwx_rx_addbuf(sc, IWX_RBUF_SIZE, sc->rxq.cur)) {
-//				ifp->if_ierrors++;
 				break;
 			}
 			KASSERT((data->m != m0), ("%s: data->m != m0", __func__));
@@ -8912,7 +8901,6 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 				 */
 				m = m_copym(m0, 0, M_COPYALL, M_NOWAIT);
 				if (m == NULL) {
-//					ifp->if_ierrors++;
 					m_freem(m0);
 					m0 = NULL;
 					break;
