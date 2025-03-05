@@ -4446,26 +4446,21 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 	}
 
 	len = le16toh(desc->mpdu_len);
-//	if (ic->ic_opmode == IEEE80211_M_MONITOR) {
-//		/* Allow control frames in monitor mode. */
-//		if (len < sizeof(struct ieee80211_frame_cts)) {
-//			ic->ic_stats.is_rx_tooshort++;
-//			IC2IFP(ic)->if_ierrors++;
-//			m_freem(m);
-//			return;
-//		}
-//
-//	} else if (len < sizeof(struct ieee80211_frame)) {
-//		ic->ic_stats.is_rx_tooshort++;
-//		IC2IFP(ic)->if_ierrors++;
-//		m_freem(m);
-//		return;
-//	}
-//	if (len > maxlen - desc_size) {
-//		IC2IFP(ic)->if_ierrors++;
-//		m_freem(m);
-//		return;
-//	}
+	if (ic->ic_opmode == IEEE80211_M_MONITOR) {
+		/* Allow control frames in monitor mode. */
+		if (len < sizeof(struct ieee80211_frame_cts)) {
+			m_freem(m);
+			return;
+		}
+
+	} else if (len < sizeof(struct ieee80211_frame)) {
+		m_freem(m);
+		return;
+	}
+	if (len > maxlen - desc_size) {
+		m_freem(m);
+		return;
+	}
 
 	// TODO: arithmetic on a pointer to void is a GNU extension
 	m->m_data = (char *)pktdata + desc_size;
