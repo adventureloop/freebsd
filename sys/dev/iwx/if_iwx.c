@@ -4498,7 +4498,6 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 	    IWX_RX_MPDU_RES_STATUS_SEC_CCM_ENC) {
 		pad = 1;
 	}
-//	memset(&rxi, 0, sizeof(rxi));
 
 //	/*
 //	 * Hardware de-aggregates A-MSDUs and copies the same MAC header
