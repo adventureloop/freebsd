@@ -4924,23 +4924,6 @@ iwx_phy_ctxt_cmd_uhb_v3_v4(struct iwx_softc *sc, struct iwx_phy_ctxt *ctxt,
 	    IWX_PHY_BAND_24 : IWX_PHY_BAND_5;
 	cmd.ci.channel = htole32(ieee80211_chan2ieee(ic, chan));
 
-//	if (vht_chan_width == IEEE80211_VHTOP0_CHAN_WIDTH_80) {
-//		cmd.ci.ctrl_pos = iwx_get_vht_ctrl_pos(ic, chan);
-//		cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE80;
-//	} else if (chan->ic_flags & IEEE80211_CHAN_40MHZ) {
-//		if (sco == IEEE80211_HTOP0_SCO_SCA) {
-//			/* secondary chan above -> control chan below */
-//			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_BELOW;
-//			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE40;
-//		} else if (sco == IEEE80211_HTOP0_SCO_SCB) {
-//			/* secondary chan below -> control chan above */
-//			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_ABOVE;
-//			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE40;
-//		} else {
-//			cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE20;
-//			cmd.ci.ctrl_pos = IWX_PHY_VHT_CTRL_POS_1_BELOW;
-//		}
-//
 	if (IEEE80211_IS_CHAN_VHT80(chan)) {
 		cmd.ci.ctrl_pos = iwx_get_vht_ctrl_pos(ic, chan);
 		cmd.ci.width = IWX_PHY_VHT_CHANNEL_MODE80;
