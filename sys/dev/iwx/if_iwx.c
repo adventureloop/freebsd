@@ -3201,7 +3201,6 @@ iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
         ieee80211_add_channel_list_2ghz(ic->ic_channels, maxchans, nchans,
             channel_list_2ghz,
             channels_2ghz, bands, 0);
-            //NET80211_CBW_FLAG_HT40 /* | NET80211_CBW_FLAG_VHT80*/);
 
         if (data->sku_cap_band_52GHz_enable) {
                 memset(bands, 0, sizeof(bands));
@@ -3213,7 +3212,7 @@ iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
                 ieee80211_add_channel_list_5ghz(ic->ic_channels, maxchans, nchans,
 		    channel_list_5ghz,
 		    channels_5ghz, bands,
-                    0); // | NET80211_CBW_FLAG_HT40 | NET80211_CBW_FLAG_VHT80);
+                    0);
         }
 }
 
