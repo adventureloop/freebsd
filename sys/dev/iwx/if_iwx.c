@@ -7431,7 +7431,6 @@ iwx_auth(struct ieee80211vap *vap, struct iwx_softc *sc)
 			return err;
 	}
 	ivp->phy_ctxt = &sc->sc_phyctxt[0];
-	// TODO: vap here?
 	IEEE80211_ADDR_COPY(in->in_macaddr, in->in_ni.ni_macaddr);
 	DPRINTF(("%s: in-in_macaddr=%s\n", __func__,
 	    ether_sprintf(in->in_macaddr)));
@@ -10654,7 +10653,7 @@ iwx_scan_end(struct ieee80211com *ic)
 static void
 iwx_set_channel(struct ieee80211com *ic)
 {
-#if 0	// soon! from the fbsd iwx port
+#if 0
         struct iwx_softc *sc = ic->ic_softc;
         struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
 
@@ -10687,7 +10686,6 @@ iwx_raw_xmit(struct ieee80211_node *ni, struct mbuf *m,
 	struct iwx_softc *sc = ic->ic_softc;
 	int err;
 
-	// TODO timer from iwm
 	IWX_LOCK(sc);
 	if (sc->sc_flags & IWX_FLAG_STA_ACTIVE) {
 		err = iwx_tx(sc, m, ni);
