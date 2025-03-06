@@ -4721,7 +4721,6 @@ iwx_rx_tx_cmd(struct iwx_softc *sc, struct iwx_rx_packet *pkt,
 	ssn = le32toh(ssn);
 	if (ssn < sc->max_tfd_queue_size) {
 		iwx_txq_advance(sc, ring, ssn);
-		//TODO if_start?
 		iwx_clear_oactive(sc, ring);
 	}
 }
