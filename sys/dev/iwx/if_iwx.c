@@ -2186,7 +2186,7 @@ iwx_alloc_tx_ring(struct iwx_softc *sc, struct iwx_tx_ring *ring, int qid)
 	KASSERT(paddr == ring->cmd_dma.paddr + size, ("bad paddr in txr alloc"));
 	return 0;
 
-fail:	//iwx_free_tx_ring(sc, ring);
+fail:
 	return err;
 }
 
