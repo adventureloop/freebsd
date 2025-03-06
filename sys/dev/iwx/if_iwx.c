@@ -2497,7 +2497,7 @@ iwx_apm_config(struct iwx_softc *sc)
 #undef PCI_PCIE_LCSR_ASPM_L0S
 #undef PCI_PCIE_DCSR2
 #undef PCI_PCIE_DCSR2_LTREN
-#undef PCI_PCIE_LCSR_ASPM_L1 
+#undef PCI_PCIE_LCSR_ASPM_L1
 }
 
 /*
@@ -3184,7 +3184,7 @@ iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
 		else {
 			if (ch_idx < IWX_NUM_2GHZ_CHANNELS) {
 				channel_list_2ghz[channels_2ghz++] = nvm_channels[ch_idx];
-			} else if ((ch_idx >= IWX_NUM_2GHZ_CHANNELS) && 
+			} else if ((ch_idx >= IWX_NUM_2GHZ_CHANNELS) &&
 				(ch_idx < IWX_NUM_2GHZ_CHANNELS + IWX_NUM_5GHZ_CHANNELS)) {
 				channel_list_5ghz[channels_5ghz++] = nvm_channels[ch_idx];
 			} else
@@ -4279,12 +4279,12 @@ iwx_rx_frame(struct iwx_softc *sc, struct mbuf *m, int chanidx,
 	struct ieee80211_frame *wh;
 	struct ieee80211_node *ni;
 
-	/* 
+	/*
 	 * We need to turn the hardware provided channel index into a channel
 	 * and then find it in our ic_channels array
 	 */
 	if (chanidx < 0 || chanidx >= nitems(ic->ic_channels)) {
-		/* 
+		/*
 		 * OpenBSD points this at the ibss chan, which it defaults to
 		 * channel 1 and then never touches again. Skip a step.
 		 */
@@ -4296,7 +4296,7 @@ iwx_rx_frame(struct iwx_softc *sc, struct mbuf *m, int chanidx,
 	for (int i = 0; i < ic->ic_nchans; i++) {
 		if (ic->ic_channels[i].ic_ieee == channel) {
 			chanidx = i;
-		} 
+		}
 	}
 	ic->ic_curchan = &ic->ic_channels[chanidx];
 
@@ -4491,7 +4491,7 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 		memmove(m->m_data + 2, m->m_data, hdrlen);
 		m_adj(m, 2);
 
-	} 
+	}
 
 	if ((le16toh(desc->status) &
 	    IWX_RX_MPDU_RES_STATUS_SEC_ENC_MSK) ==
@@ -4646,7 +4646,7 @@ iwx_txd_done(struct iwx_softc *sc, struct iwx_tx_ring *ring,
 static void
 iwx_txq_advance(struct iwx_softc *sc, struct iwx_tx_ring *ring, uint16_t idx)
 {
- 	struct iwx_tx_data *txd;
+	struct iwx_tx_data *txd;
 
 	while (ring->tail_hw != idx) {
 		txd = &ring->data[ring->tail];
