@@ -1175,8 +1175,9 @@ iwx_ctxt_info_gen3_init(struct iwx_softc *sc, const struct iwx_fw_sects *fws)
 	IWX_SETBITS(sc, IWX_CSR_CTXT_INFO_BOOT_CTRL,
 		    IWX_CSR_AUTO_FUNC_BOOT_ENA);
 
-	printf("%s:%d kicking fw to get going\n", __func__, __LINE__);
-	printf("%s:%d fw paddr 0x%lx\n", __func__, __LINE__, paddr);
+	IWX_DPRINTF(sc, IWX_DEBUG_FIRMWARE_TLV,
+	    "%s:%d kicking fw to get going\n", __func__, __LINE__);
+
 	/* kick FW self load */
 	if (!iwx_nic_lock(sc)) {
 		iwx_dma_contig_free(&sc->iml_dma);
