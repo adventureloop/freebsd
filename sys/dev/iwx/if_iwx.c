@@ -606,8 +606,6 @@ static void	iwx_radiotap_attach(struct iwx_softc *);
 #define IEEE80211_HT_RATESET_SISO 0
 #define IEEE80211_HT_RATESET_MIMO2 2
 
-#define TRACEP printf("%s:%d\n", __func__, __LINE__)
-
 const struct ieee80211_rateset ieee80211_std_rateset_11a =
 	{ 8, { 12, 18, 24, 36, 48, 72, 96, 108 } };
 
@@ -623,8 +621,6 @@ ieee80211_has_addr4(const struct ieee80211_frame *wh)
 	return (wh->i_fc[1] & IEEE80211_FC1_DIR_MASK) ==
 	    IEEE80211_FC1_DIR_DSTODS;
 }
-
-#define TRACEP printf("%s:%d\n", __func__, __LINE__)
 
 static uint8_t
 iwx_lookup_cmd_ver(struct iwx_softc *sc, uint8_t grp, uint8_t cmd)
