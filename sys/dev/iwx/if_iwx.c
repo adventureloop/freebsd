@@ -4580,7 +4580,6 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, struct mbuf *m, void *pktdata,
 	rxs.c_rssi = rssi * 2;
 	rxs.c_nf = sc->sc_noise;
 
-//	if (k != NULL && k->wk_cipher->ic_cipher == IEEE80211_CIPHER_AES_CCM) {
 	if (pad) {
 		rxs.c_pktflags |= IEEE80211_RX_F_DECRYPTED;
 		rxs.c_pktflags |= IEEE80211_RX_F_IV_STRIP;
