@@ -10551,8 +10551,6 @@ iwx_vap_create(struct ieee80211com *ic, const char name[IFNAMSIZ], int unit,
 	ivp->color = IWX_DEFAULT_COLOR;
 
 	ivp->have_wme = TRUE;
-	if (! ivp->have_wme)
-		printf("TODO: enable wme for vap\n");
 	ivp->ps_disabled = FALSE;
 
 	vap->iv_ampdu_rxmax = IEEE80211_HTCAP_MAXRXAMPDU_64K;
