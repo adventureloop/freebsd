@@ -5745,7 +5745,6 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 	/* Kick TX ring. */
 	ring->cur = (ring->cur + 1) % IWX_TX_RING_COUNT;
 	ring->cur_hw = (ring->cur_hw + 1) % sc->max_tfd_queue_size;
-	//printf("%s: ring->cur_hw=%i\n", __func__, ring->cur_hw);
 	IWX_WRITE(sc, IWX_HBUS_TARG_WRPTR, ring->qid << 16 | ring->cur_hw);
 
 	/* Mark TX ring as full if we reach a certain threshold. */
