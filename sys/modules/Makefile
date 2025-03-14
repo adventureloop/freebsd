@@ -200,10 +200,10 @@ SUBDIR=	\
 	${_iwm} \
 	${_iwn} \
 	${_iwnfw} \
+	${_iwx} \
 	${_ix} \
 	${_ixv} \
 	${_ixl} \
-	iwx \
 	jme \
 	kbdmux \
 	kgssapi \
@@ -571,6 +571,7 @@ _mlx5ib=	mlx5ib
 _ena=		ena
 _gve=		gve
 _iwlwifi=	iwlwifi
+_iwx=		iwx
 .if ${MK_SOURCELESS_UCODE} != "no"
 _iwlwififw=	iwlwififw
 .endif
