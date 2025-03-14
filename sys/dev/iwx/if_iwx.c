@@ -7247,8 +7247,6 @@ iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 	    IWX_TLC_MNG_UPDATE_NOTIF);
 	if (cmd_ver != IWX_FW_CMD_VER_UNKNOWN && cmd_ver >= 3)
 		rate_n_flags_ver2 = 1;
-	else
-		panic("hey look at that!");
 
 	if (rate_n_flags_ver2) {
 		uint32_t mod_type = (rate_n_flags & IWX_RATE_MCS_MOD_TYPE_MSK);
