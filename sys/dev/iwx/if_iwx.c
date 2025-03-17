@@ -5052,7 +5052,7 @@ static int
 iwx_send_cmd(struct iwx_softc *sc, struct iwx_host_cmd *hcmd)
 {
 #ifdef IWX_DEBUG
-        iwx_bbl_add_entry(hcmd->id, IWX_BBL_CMD_TX);
+        iwx_bbl_add_entry(hcmd->id, IWX_BBL_CMD_TX, ticks);
 #endif
 	struct iwx_tx_ring *ring = &sc->txq[IWX_DQA_CMD_QUEUE];
 	struct iwx_tfh_tfd *desc;
@@ -5652,7 +5652,7 @@ iwx_tx(struct iwx_softc *sc, struct mbuf *m, struct ieee80211_node *ni)
 		txcmd_size = sizeof(*tx);
 	}
 #if IWX_DEBUG
-	iwx_bbl_add_entry(totlen, IWX_BBL_PKT_TX);
+	iwx_bbl_add_entry(totlen, IWX_BBL_PKT_TX, ticks);
 #endif
 
 	/* Trim 802.11 header. */
@@ -8820,7 +8820,7 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 		if (!iwx_rx_pkt_valid(pkt))
 			break;
 #ifdef IWX_DEBUG
-        iwx_bbl_add_entry(pkt->hdr.code, IWX_BBL_CMD_RX);
+        iwx_bbl_add_entry(pkt->hdr.code, IWX_BBL_CMD_RX, ticks);
 #endif
 		/*
 		 * XXX Intel inside (tm)

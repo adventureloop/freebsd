@@ -9,8 +9,6 @@
  * from the FreeBSD Foundation.
  */
 
-//#include <dev/iwx/if_iwxreg.h>
-
 #ifndef	__IF_IWX_DEBUG_H__
 #define	__IF_IWX_DEBUG_H__
 
@@ -56,11 +54,11 @@ enum {
 #define IWX_DPRINTF(sc, m, fmt, ...) do { (void) sc; } while (0)
 #endif
 
-void iwx_dump_cmd(struct iwx_host_cmd *, const char *, int);
-void iwx_bbl_add_entry(uint64_t , int);
-void print_opcode(const char *, int , int , uint32_t);
+void print_opcode(const char *, int, int, uint32_t);
+void iwx_dump_cmd(uint32_t , void *, uint16_t, const char *, int);
+void iwx_bbl_add_entry(uint64_t, int, int);
+void iwx_bbl_print_log(void);
 
-#endif	/* __IF_IWX_DEBUG_H__ */
 #define IWX_BBL_NONE	0x00
 #define IWX_BBL_PKT_TX	0x01
 #define IWX_BBL_PKT_RX	0x02
@@ -69,29 +67,8 @@ void print_opcode(const char *, int , int , uint32_t);
 #define IWX_BBL_CMD_RX	0x20
 #define IWX_BBL_ANY	0xFF
 
-static const char *
-iwx_bbl_to_str(int type)
-{
-	switch(type) {
-	case IWX_BBL_PKT_TX:
-		return ("IWX_BBL_PKT_TX");
-	case IWX_BBL_PKT_RX:
-		return ("IWX_BBL_PKT_RX");
-	case IWX_BBL_PKT_DUP:
-		return ("IWX_BBL_PKT_DUP");
-	case IWX_BBL_CMD_TX:
-		return ("IWX_BBL_CMD_TX");
-	case IWX_BBL_CMD_RX:
-		return ("IWX_BBL_CMD_RX");
-	case IWX_BBL_ANY:
-		return ("IWX_BBL_ANY");
-	default:
-		return ("ERROR");
-	}
-}
-
-int print_mask = IWX_BBL_NONE; //IWX_BBL_NONE | IWX_BBL_CMD_TX;
-int print_codes[][2] = {
+static int print_mask = IWX_BBL_NONE; //IWX_BBL_NONE | IWX_BBL_CMD_TX;
+static int print_codes[][2] = {
 #if 0
 	for example:
 	IWX_LEGACY_GROUP, IWX_ADD_STA_KEY,
@@ -101,8 +78,8 @@ int print_codes[][2] = {
 #endif
 };
 
-int dump_mask = IWX_BBL_NONE;
-int dump_codes[][2] = {
+static int dump_mask = IWX_BBL_NONE;
+static int dump_codes[][2] = {
 #if 0
 	for example:
 	IWX_LEGACY_GROUP, IWX_ADD_STA_KEY,
@@ -117,7 +94,7 @@ struct opcode_label {
 	const char *label;
 };
 
-struct opcode_label command_group[] = {
+static struct opcode_label command_group[] = {
 	{ 0x0, "IWX_LEGACY_GROUP"}, 
 	{ 0x1, "IWX_LONG_GROUP"},
 	{ 0x2, "IWX_SYSTEM_GROUP"},
@@ -129,7 +106,7 @@ struct opcode_label command_group[] = {
 	{ 0, NULL }
 };
 
-struct opcode_label legacy_opcodes[] = {
+static struct opcode_label legacy_opcodes[] = {
 	{ 0xc0, "IWX_REPLY_RX_PHY_CMD" },
 	{ 0xc1, "IWX_REPLY_RX_MPDU_CMD" },
 	{ 0xc2, "IWX_BAR_FRAME_RELEASE" },
@@ -229,7 +206,7 @@ struct opcode_label legacy_opcodes[] = {
 };
 
 /* SYSTEM_GROUP group subcommand IDs */
-struct opcode_label system_opcodes[] = {
+static struct opcode_label system_opcodes[] = {
 	{ 0x00, "IWX_SHARED_MEM_CFG_CMD" },
 	{ 0x01, "IWX_SOC_CONFIGURATION_CMD" },
 	{ 0x03, "IWX_INIT_EXTENDED_CFG_CMD" },
@@ -237,14 +214,16 @@ struct opcode_label system_opcodes[] = {
 	{ 0xff, "IWX_FSEQ_VER_MISMATCH_NOTIFICATION | IWX_REPLY_MAX" },
 	{ 0, NULL }
 };
+
 /* MAC_CONF group subcommand IDs */
-struct opcode_label macconf_opcodes[] = {
+static struct opcode_label macconf_opcodes[] = {
 	{ 0x05, "IWX_SESSION_PROTECTION_CMD" },
 	{ 0xfb, "IWX_SESSION_PROTECTION_NOTIF" },
 	{ 0, NULL }
 };
+
 /* DATA_PATH group subcommand IDs */
-struct opcode_label data_opcodes[] = {
+static struct opcode_label data_opcodes[] = {
 	{ 0x00, "IWX_DQA_ENABLE_CMD" },
 	{ 0x08, "IWX_RLC_CONFIG_CMD" },
 	{ 0x0f, "IWX_TLC_MNG_CONFIG_CMD" },
@@ -257,7 +236,7 @@ struct opcode_label data_opcodes[] = {
 };
 
 /* REGULATORY_AND_NVM group subcommand IDs */
-struct opcode_label reg_opcodes[] = {
+static struct opcode_label reg_opcodes[] = {
 	{ 0x00, "IWX_NVM_ACCESS_COMPLETE" },
 	{ 0x02, "IWX_NVM_GET_INFO " },
 	{ 0xfe, "IWX_PNVM_INIT_COMPLETE" },
@@ -265,7 +244,7 @@ struct opcode_label reg_opcodes[] = {
 };
 
 /* PHY_OPS subcommand IDs */
-struct opcode_label phyops_opcodes[] = {
+static struct opcode_label phyops_opcodes[] = {
 	{0x00, 	"IWX_CMD_DTS_MEASUREMENT_TRIGGER_WIDE"},
 	{0x03,	"IWX_CTDP_CONFIG_CMD"},
 	{0x04,	"IWX_TEMP_REPORTING_THRESHOLDS_CMD"},
@@ -273,181 +252,14 @@ struct opcode_label phyops_opcodes[] = {
 	{0xFF,	"IWX_DTS_MEASUREMENT_NOTIF_WIDE"},
 };
 
-static const char *
-get_label(struct opcode_label *table, uint8_t opcode)
-{
-	struct opcode_label *op = table;
-	while(op->label != NULL) {
-		if (op->opcode == opcode)
-			return op->label;
-		op++;
-	}
-	return "NOT FOUND IN TABLE";
-}
-
-static struct opcode_label *
-get_table(uint8_t group)
-{
-	switch (group)
-	{
-	case IWX_LEGACY_GROUP:
-	case IWX_LONG_GROUP:
-		return legacy_opcodes;
-		break;
-	case IWX_SYSTEM_GROUP:
-		return system_opcodes;
-		break;
-	case IWX_MAC_CONF_GROUP:
-		return macconf_opcodes;
-		break;
-	case IWX_DATA_PATH_GROUP:
-		return data_opcodes;
-		break;
-	case IWX_REGULATORY_AND_NVM_GROUP:
-		return reg_opcodes;
-		break;
-	case IWX_PHY_OPS_GROUP:
-		return phyops_opcodes;
-		break;
-	case IWX_PROT_OFFLOAD_GROUP:
-		break;
-	}
-	return NULL;
-}
-
-void
-print_opcode(const char *func, int line, int type, uint32_t code)
-{
-	int print = print_mask & type;
-	uint8_t opcode = iwx_cmd_opcode(code);
-	uint8_t group = iwx_cmd_groupid(code);
-
-	struct opcode_label *table = get_table(group);
-	if (table == NULL) {
-		printf("Couldn't find opcode table for 0x%08x", code);
-		return;
-	}
-
-	for (int i = 0; i < nitems(print_codes); i++)
-		if (print_codes[i][0] == group && print_codes[i][1] == opcode)
-			print = 1;
-
-	if (print) {
-		printf("%s:%d %s\t%s\t%s\t(0x%08x)\n", func, line,
-		    iwx_bbl_to_str(type), get_label(command_group, group),
-		    get_label(table, opcode), code);
-	}
-}
-
-void
-iwx_dump_cmd(struct iwx_host_cmd *cmd, const char *str, int type)
-{
-	int dump = dump_mask & type;
-	uint8_t opcode = iwx_cmd_opcode(cmd->id);
-	uint8_t group = iwx_cmd_groupid(cmd->id);
-
-	for (int i = 0; i < nitems(dump_codes); i++)
-		if (dump_codes[i][0] == group && dump_codes[i][1] == opcode)
-			dump = 1;
-
-	if (dump)
-		hexdump((const void *)cmd->data[0], cmd->len[0], str, 0);
-}
-
-#define IWX_BBL_ENTRIES	2000
 struct iwx_bbl_entry {
 	uint8_t type;
 	uint64_t code;
 	uint32_t seq;
 	uint32_t ticks;
 	uint32_t count;
-} iwx_bb_log[IWX_BBL_ENTRIES];
+};
+#define IWX_BBL_ENTRIES	2000
+static struct iwx_bbl_entry iwx_bb_log[IWX_BBL_ENTRIES];
 
-uint16_t bbl_idx = 0;
-uint32_t bbl_seq = 0;
-uint8_t compress = 1;
-
-
-void 
-iwx_bbl_add_entry(uint64_t code, int type)
-{
-	/* 
-	 * Compress together repeated notifications, but increment the sequence
-	 * number so we can track things processing.
-	 */
-	if (compress && (iwx_bb_log[bbl_idx].code == code &&
-	    iwx_bb_log[bbl_idx].type == type)) {
-		iwx_bb_log[bbl_idx].count++;
-		iwx_bb_log[bbl_idx].seq = bbl_seq++;
-		iwx_bb_log[bbl_idx].ticks = ticks;
-		return;
-	}
-
-	if (bbl_idx++ > IWX_BBL_ENTRIES) {
-#if 0
-		printf("iwx bbl roll over: type %d (%lu)\n", type, code);
-#endif
-		bbl_idx = 0;	
-	}	
-	iwx_bb_log[bbl_idx].code = code;
-	iwx_bb_log[bbl_idx].type = type;
-	iwx_bb_log[bbl_idx].seq = bbl_seq++;
-	iwx_bb_log[bbl_idx].ticks = ticks;
-	iwx_bb_log[bbl_idx].count = 1;
-}
-
-static void
-iwx_bbl_print_entry(struct iwx_bbl_entry *e)
-{
-	uint8_t opcode = iwx_cmd_opcode(e->code);
-	uint8_t group = iwx_cmd_groupid(e->code);
-
-	switch(e->type) {
-	case IWX_BBL_PKT_TX:
-		printf("pkt     ");
-		printf("seq %08d\t pkt len %ld",
-			e->seq, e->code);
-		break;
-		printf("pkt dup ");
-		printf("seq %08d\t dup count %ld",
-			e->seq, e->code);
-		break;
-	case IWX_BBL_CMD_TX:
-		printf("tx ->   ");
-		printf("seq %08d\tcode 0x%08lx (%s:%s)",
-			e->seq, e->code, get_label(command_group, group),
-			get_label(get_table(group), opcode));
-		break;
-	case IWX_BBL_CMD_RX:
-		printf("rx      ");
-		printf("seq %08d\tcode 0x%08lx (%s:%s)",
-			e->seq, e->code, get_label(command_group, group),
-			get_label(get_table(group), opcode));
-		break;
-	}
-	if (e->count > 1)
-		printf(" (count %d)", e->count);
-	printf("\n");
-}
-
-static void
-iwx_bbl_print_log(void)
-{
-	int start = -1;
-
-	start = bbl_idx+1;
-	if (start > IWX_BBL_ENTRIES-1)
-		start = 0;
-
-	for (int i = start; i < IWX_BBL_ENTRIES; i++) {
-		struct iwx_bbl_entry *e = &iwx_bb_log[i];
-		printf("bbl entry %05d %05d: ", i, e->ticks);
-		iwx_bbl_print_entry(e);
-	}
-	for (int i = 0; i < start; i++) {
-		struct iwx_bbl_entry *e = &iwx_bb_log[i];
-		printf("bbl entry %05d %05d: ", i, e->ticks);
-		iwx_bbl_print_entry(e);
-	}
-	printf("iwx bblog index %d seq %d\n", bbl_idx, bbl_seq);
-}
+#endif	/* __IF_IWX_DEBUG_H__ */
