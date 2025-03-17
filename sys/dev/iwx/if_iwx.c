@@ -1301,7 +1301,7 @@ iwx_read_firmware(struct iwx_softc *sc)
 
 	fw->fw_status = IWX_FW_STATUS_INPROGRESS;
 	fwp = firmware_get(sc->sc_fwname);
-	sc->fwp = fwp;
+	sc->sc_fwp = fwp;
 
 	if (fwp == NULL) {
 		printf("%s: could not read firmware %s\n",
@@ -3872,6 +3872,7 @@ iwx_load_pnvm(struct iwx_softc *sc)
 				IWX_LOCK(sc);
 				return EINVAL;
 			}
+			sc->sc_pnvm = pnvm;
 
 			err = iwx_pnvm_parse(sc, pnvm->data, pnvm->datasize);
 			IWX_LOCK(sc);
@@ -10468,8 +10469,15 @@ iwx_detach(device_t dev)
 		iwx_free_tx_ring(sc, &sc->txq[txq_i]);
 	iwx_free_rx_ring(sc, &sc->rxq);
 
-	firmware_put(sc->fwp, FIRMWARE_UNLOAD);
-	sc->fwp = NULL;
+	if (sc->sc_fwp != NULL) {
+		firmware_put(sc->sc_fwp, FIRMWARE_UNLOAD);
+		sc->sc_fwp = NULL;
+	}
+
+	if (sc->sc_pnvm != NULL) {
+		firmware_put(sc->sc_pnvm, FIRMWARE_UNLOAD);
+		sc->sc_pnvm = NULL;
+	}
 
 	if (sc->sc_irq != NULL) {
 		bus_teardown_intr(dev, sc->sc_irq, sc->sc_ih);

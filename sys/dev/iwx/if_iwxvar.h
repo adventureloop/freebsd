@@ -831,7 +831,8 @@ struct iwx_softc {
 	int			(*sc_addba_response)(struct ieee80211_node *,
 				    struct ieee80211_tx_ampdu *, int, int, int);
 	struct callout	watchdog_to;
-	const struct firmware *fwp;
+	const struct firmware *sc_fwp;
+	const struct firmware *sc_pnvm;
 
 	struct iwx_scan_req_umac_v14 sc_umac_v14_cmd;
 
