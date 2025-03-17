@@ -555,7 +555,7 @@ u_int8_t etherbroadcastaddr[ETHER_ADDR_LEN] =
 u_int8_t etheranyaddr[ETHER_ADDR_LEN] =
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-#ifdef IWX_DEBUG
+#if IWX_DEBUG
 #define DPRINTF(x)	do { if (sc->sc_debug == IWX_DEBUG_ANY) { printf x; } } while (0)
 #else
 #define DPRINTF(x)	do { ; } while (0)
@@ -9082,7 +9082,7 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 
 		case IWX_SCAN_COMPLETE_UMAC: {
 			DPRINTF(("%s: >>> IWX_SCAN_COMPLETE_UMAC\n", __func__));
-			struct iwx_umac_scan_complete *notif;
+			struct iwx_umac_scan_complete *notif __attribute__((unused));
 			SYNC_RESP_STRUCT(notif, pkt);
 			DPRINTF(("%s: scan complete notif->status=%d\n", __func__,
 			    notif->status));
@@ -9094,7 +9094,7 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf *ml)
 		case IWX_SCAN_ITERATION_COMPLETE_UMAC: {
 			DPRINTF(("%s: >>> IWX_SCAN_ITERATION_COMPLETE_UMAC\n",
 			    __func__));
-			struct iwx_umac_scan_iter_complete_notif *notif;
+			struct iwx_umac_scan_iter_complete_notif *notif __attribute__((unused));
 			SYNC_RESP_STRUCT(notif, pkt);
 			DPRINTF(("%s: iter scan complete notif->status=%d\n", __func__,
 			    notif->status));
