@@ -226,8 +226,7 @@ struct iwx_dma_info {
 
 #define IWX_TX_RING_COUNT	IWX_DEFAULT_QUEUE_SIZE
 #define IWX_TX_RING_LOMARK	192
-#define IWX_TX_RING_HIMARK	195
-//#define IWX_TX_RING_HIMARK	224
+#define IWX_TX_RING_HIMARK	224
 
 struct iwx_tx_data {
 	bus_dmamap_t	map;
@@ -617,7 +616,6 @@ const struct iwx_device_cfg iwx_2ax_cfg_so_jf_b0 = {
 #define IWX_SUBDEVICE_CORES(subdevice)	((uint16_t)((subdevice) & 0x1c00) >> 10)
 
 struct iwx_rx_ba {
-//	struct timeout		ba_to;
 	int			ba_timeout_val;
 	u_int16_t		ba_params;
 	u_int16_t		ba_winstart;
@@ -635,8 +633,6 @@ struct iwx_softc {
 	int attached;
 
 	struct task		init_task; /* NB: not reference-counted */
-	//XXX:misha unknown in FreeBSD
-//	struct refcnt		task_refs;
 	struct task		newstate_task;
 	enum ieee80211_state	ns_nstate;
 	int			ns_arg;
@@ -672,10 +668,6 @@ struct iwx_softc {
 	bus_size_t sc_sz;
 	bus_dma_tag_t sc_dmat;
 
-	//XXX:misha unknown in FreeBSD
-//	pci_product_id_t sc_pid;
-//	pci_chipset_tag_t sc_pct;
-//	pcitag_t sc_pcitag;
 	u_int16_t sc_pid;
 	void *sc_pct;
 	u_int32_t sc_pcitag;
@@ -805,7 +797,6 @@ struct iwx_softc {
 	int sc_umac_prph_offset;
 	int sc_imr_enabled;
 
-//#if NBPFILTER > 0
 	caddr_t			sc_drvbpf;
 
 	union {
@@ -821,9 +812,8 @@ struct iwx_softc {
 	} sc_txtapu;
 #define sc_txtap	sc_txtapu.th
 	int			sc_txtap_len;
-//#endif
 
-	//XXX:misha FreeBSD specific
+	/* XXX: FreeBSD specific */
 	struct mtx	sc_mtx;
 	struct resource	*sc_mem;
 	struct resource	*sc_irq;
@@ -845,7 +835,7 @@ struct iwx_softc {
 
 	struct iwx_scan_req_umac_v14 sc_umac_v14_cmd;
 
-	// XXX-THJ backwards compat stuff
+	/* This is needed to support older firmware versions */
 	int sc_rsp_vers;
 	union {
 		struct iwx_nvm_get_info_rsp	rsp_v4;
@@ -854,14 +844,7 @@ struct iwx_softc {
 	} sc_rsp_info;
 	uint32_t sc_debug;
 
-	// TODO:misha addba_stop?
-
-	// TEMP
-//	struct ieee80211_node	*ba_ni;
-//	struct ieee80211_rx_ampdu *ba_rap;
-//	int ba_baparamset;
-//	int ba_timeout;
-//	int ba_baseqctl;
+	/* XXX-TODO addba_stop? */
 };
 
 #define IWX_LOCK_INIT(_sc) \

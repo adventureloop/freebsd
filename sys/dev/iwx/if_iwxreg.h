@@ -7895,20 +7895,12 @@ iwx_rx_packet_payload_len(const struct iwx_rx_packet *pkt)
 #define IWX_READ(sc, reg)						\
 	bus_space_read_4((sc)->sc_st, (sc)->sc_sh, (reg))
 
-//#define IWX_WRITE(sc, reg, val)						\
-//	printf("=== WRITE %s: %x %zx\n", __func__, reg, (unsigned long)(val));	\
-//	bus_space_write_4((sc)->sc_st, (sc)->sc_sh, (reg), (val))
-
 #define IWX_WRITE(sc, reg, val)						\
 	bus_space_write_4((sc)->sc_st, (sc)->sc_sh, (reg), (val))
 
 #define IWX_WRITE_1(sc, reg, val)					\
 	bus_space_write_1((sc)->sc_st, (sc)->sc_sh, (reg), (val))
 
-//#define IWX_SETBITS(sc, reg, mask)	{				\
-//	uint32_t val = IWX_READ(sc, reg);					\
-//	printf("=== READ %s: %x %x\n", __func__, (reg), (val));	\
-//	IWX_WRITE(sc, reg, IWX_READ(sc, reg) | (mask));	}
 #define IWX_SETBITS(sc, reg, mask)	{				\
 	IWX_WRITE(sc, reg, IWX_READ(sc, reg) | (mask));	}
 
