@@ -10024,7 +10024,18 @@ iwx_probe(device_t dev)
 		if (pci_get_vendor(dev) == PCI_VENDOR_INTEL &&
 		    pci_get_device(dev) == iwx_devices[i].device) {
 			device_set_desc(dev, iwx_devices[i].name);
-			return (BUS_PROBE_DEFAULT);
+
+			/*
+			 * Due to significant existing deployments using
+			 * iwlwifi lower the priority of iwx.
+			 *
+			 * This inverts the advice in bus.h where drivers
+			 * supporting newer hardware should return
+			 * BUS_PROBE_DEFAULT and drivers for older devices
+			 * return BUS_PROBE_LOW_PRIORITY.
+			 *
+			 */
+			return (BUS_PROBE_LOW_PRIORITY);
 		}
 	}
 
