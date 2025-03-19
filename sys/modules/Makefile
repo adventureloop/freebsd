@@ -571,7 +571,6 @@ _mlx5ib=	mlx5ib
 _ena=		ena
 _gve=		gve
 _iwlwifi=	iwlwifi
-_iwx=		iwx
 .if ${MK_SOURCELESS_UCODE} != "no"
 _iwlwififw=	iwlwififw
 .endif
@@ -804,6 +803,7 @@ _ipw=		ipw
 _iwi=		iwi
 _iwm=		iwm
 _iwn=		iwn
+_iwx=		iwx
 .if ${MK_SOURCELESS_UCODE} != "no"
 _ipwfw=		ipwfw
 _iwifw=		iwifw
