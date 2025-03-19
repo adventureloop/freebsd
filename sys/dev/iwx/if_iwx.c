@@ -296,8 +296,10 @@ const int iwx_mcs2ridx[] = {
 static uint8_t	iwx_lookup_cmd_ver(struct iwx_softc *, uint8_t, uint8_t);
 static uint8_t	iwx_lookup_notif_ver(struct iwx_softc *, uint8_t, uint8_t);
 static int	iwx_store_cscheme(struct iwx_softc *, const uint8_t *, size_t);
+#if 0
 static int	iwx_alloc_fw_monitor_block(struct iwx_softc *, uint8_t, uint8_t);
 static int	iwx_alloc_fw_monitor(struct iwx_softc *, uint8_t);
+#endif
 static int	iwx_apply_debug_destination(struct iwx_softc *);
 static void	iwx_set_ltr(struct iwx_softc *);
 static int	iwx_ctxt_info_init(struct iwx_softc *, const struct iwx_fw_sects *);
@@ -344,7 +346,9 @@ static void	iwx_enable_rfkill_int(struct iwx_softc *);
 static int	iwx_check_rfkill(struct iwx_softc *);
 static void	iwx_enable_interrupts(struct iwx_softc *);
 static void	iwx_enable_fwload_interrupt(struct iwx_softc *);
+#if 0
 static void	iwx_restore_interrupts(struct iwx_softc *);
+#endif
 static void	iwx_disable_interrupts(struct iwx_softc *);
 static void	iwx_ict_reset(struct iwx_softc *);
 static int	iwx_set_hw_ready(struct iwx_softc *);
@@ -457,7 +461,9 @@ static void	iwx_power_build_cmd(struct iwx_softc *, struct iwx_node *,
 	    struct iwx_mac_power_cmd *);
 static int	iwx_power_mac_update_mode(struct iwx_softc *, struct iwx_node *);
 static int	iwx_power_update_device(struct iwx_softc *);
+#if 0
 static int	iwx_enable_beacon_filter(struct iwx_softc *, struct iwx_node *);
+#endif
 static int	iwx_disable_beacon_filter(struct iwx_softc *);
 static int	iwx_add_sta_cmd(struct iwx_softc *, struct iwx_node *, int);
 static int	iwx_rm_sta_cmd(struct iwx_softc *, struct iwx_node *);
@@ -826,7 +832,7 @@ iwx_fw_version_str(char *buf, size_t bufsize,
 	else
 		snprintf(buf, bufsize, "%u.%u.%u", major, minor, api);
 }
-
+#if 0
 static int
 iwx_alloc_fw_monitor_block(struct iwx_softc *sc, uint8_t max_power,
     uint8_t min_power)
@@ -888,6 +894,7 @@ iwx_alloc_fw_monitor(struct iwx_softc *sc, uint8_t max_power)
 
 	return iwx_alloc_fw_monitor_block(sc, max_power, 11);
 }
+#endif
 
 static int
 iwx_apply_debug_destination(struct iwx_softc *sc)
@@ -2342,11 +2349,13 @@ iwx_enable_fwload_interrupt(struct iwx_softc *sc)
 	}
 }
 
+#if 0
 static void
 iwx_restore_interrupts(struct iwx_softc *sc)
 {
 	IWX_WRITE(sc, IWX_CSR_INT_MASK, sc->sc_intmask);
 }
+#endif
 
 static void
 iwx_disable_interrupts(struct iwx_softc *sc)
@@ -5968,7 +5977,7 @@ iwx_power_update_device(struct iwx_softc *sc)
 	return iwx_send_cmd_pdu(sc,
 	    IWX_POWER_TABLE_CMD, 0, sizeof(cmd), &cmd);
 }
-
+#if 0
 static int
 iwx_enable_beacon_filter(struct iwx_softc *sc, struct iwx_node *in)
 {
@@ -5985,7 +5994,7 @@ iwx_enable_beacon_filter(struct iwx_softc *sc, struct iwx_node *in)
 
 	return err;
 }
-
+#endif
 static int
 iwx_disable_beacon_filter(struct iwx_softc *sc)
 {
