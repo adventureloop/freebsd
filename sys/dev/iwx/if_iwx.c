@@ -3153,19 +3153,10 @@ iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
 {
 	struct iwx_softc *sc = ic->ic_softc;
 	struct iwx_nvm_data *data = &sc->sc_nvm;
-	int ch_idx;
-	uint32_t ch_flags;
-	int nchan;
-	const uint8_t *nvm_channels;
-	int nchan_profile = sc->sc_rsp_vers == IWX_FBSD_RSP_V4 ?
-	    IWX_NUM_CHANNELS: IWX_NUM_CHANNELS_V1;
 	uint8_t bands[IEEE80211_MODE_BYTES];
-	uint8_t channel_list_2ghz[IEEE80211_CHAN_MAX];
-	uint8_t channel_list_5ghz[IEEE80211_CHAN_MAX];
-	int channels_2ghz = 0;
-	int channels_5ghz = 0;
-	memset(channel_list_2ghz, 0, sizeof(channel_list_2ghz));
-	memset(channel_list_5ghz, 0, sizeof(channel_list_5ghz));
+	const uint8_t *nvm_channels;
+	uint32_t ch_flags;
+	int ch_idx, nchan;
 
 	if (sc->sc_uhb_supported) {
 		nchan = nitems(iwx_nvm_channels_uhb);
@@ -3175,7 +3166,21 @@ iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
 		nvm_channels = iwx_nvm_channels_8000;
 	}
 
-	for (ch_idx = 0; ch_idx < nchan && ch_idx < nchan_profile; ch_idx++) {
+	/* 2.4Ghz; 1-13: 11b/g channels. */
+	if (!data->sku_cap_band_24GHz_enable)
+		goto band_5;
+
+	memset(bands, 0, sizeof(bands));
+	setbit(bands, IEEE80211_MODE_11B);
+	setbit(bands, IEEE80211_MODE_11G);
+	setbit(bands, IEEE80211_MODE_11NG);
+	for (ch_idx = 0;
+	    ch_idx < IWX_NUM_2GHZ_CHANNELS && ch_idx < nchan;
+	    ch_idx++) {
+
+		uint32_t nflags = 0;
+		int cflags = 0;
+
 		if (sc->sc_rsp_vers == IWX_FBSD_RSP_V4) {
 			ch_flags = le32_to_cpup(
 			    sc->sc_rsp_info.rsp_v4.regulatory.channel_profile + ch_idx);
@@ -3183,46 +3188,66 @@ iwx_init_channel_map(struct ieee80211com *ic, int maxchans, int *nchans,
 			ch_flags = le16_to_cpup(
 			    sc->sc_rsp_info.rsp_v3.regulatory.channel_profile + ch_idx);
 		}
-
-		/* net80211 cannot handle 6 GHz channel numbers yet */
-		if (ch_idx >= IWX_NUM_2GHZ_CHANNELS + IWX_NUM_5GHZ_CHANNELS)
-			break;
-
-		if (!(ch_flags & IWX_NVM_CHANNEL_VALID))
+		if ((ch_flags & IWX_NVM_CHANNEL_VALID) == 0)
 			continue;
-		else {
-			if (ch_idx < IWX_NUM_2GHZ_CHANNELS) {
-				channel_list_2ghz[channels_2ghz++] = nvm_channels[ch_idx];
-			} else if ((ch_idx >= IWX_NUM_2GHZ_CHANNELS) &&
-				(ch_idx < IWX_NUM_2GHZ_CHANNELS + IWX_NUM_5GHZ_CHANNELS)) {
-				channel_list_5ghz[channels_5ghz++] = nvm_channels[ch_idx];
-			} else
-				panic("unsupported channel band");
-		}
+
+	          if ((ch_flags & IWX_NVM_CHANNEL_40MHZ) != 0)
+                  cflags |= NET80211_CBW_FLAG_HT40;
+
+		/* XXX-BZ nflags RADAR/DFS/INDOOR */
+
+		/* error = */ ieee80211_add_channel_cbw(chans, maxchans, nchans,
+		nvm_channels[ch_idx],
+		ieee80211_ieee2mhz(nvm_channels[ch_idx], IEEE80211_CHAN_B),
+		/* max_power IWL_DEFAULT_MAX_TX_POWER */ 22,
+		nflags, bands, cflags);
 	}
 
-        /* 1-13: 11b/g channels. */
+band_5:
+	/* 5Ghz */
+	if (!data->sku_cap_band_52GHz_enable)
+		goto band_6;
+
+
 	memset(bands, 0, sizeof(bands));
-	setbit(bands, IEEE80211_MODE_11B);
-	setbit(bands, IEEE80211_MODE_11G);
-	setbit(bands, IEEE80211_MODE_11NG);
+	setbit(bands, IEEE80211_MODE_11A);
+	setbit(bands, IEEE80211_MODE_11NA);
+	setbit(bands, IEEE80211_MODE_VHT_5GHZ);
 
-        ieee80211_add_channel_list_2ghz(ic->ic_channels, maxchans, nchans,
-            channel_list_2ghz,
-            channels_2ghz, bands, 0);
+	for (ch_idx = IWX_NUM_2GHZ_CHANNELS;
+	    ch_idx < (IWX_NUM_2GHZ_CHANNELS + IWX_NUM_5GHZ_CHANNELS) && ch_idx < nchan;
+	    ch_idx++) {
+		uint32_t nflags = 0;
+		int cflags = 0;
 
-        if (data->sku_cap_band_52GHz_enable) {
-                memset(bands, 0, sizeof(bands));
-                setbit(bands, IEEE80211_MODE_11A);
-                setbit(bands, IEEE80211_MODE_11NA);
-                setbit(bands, IEEE80211_MODE_VHT_5GHZ);
+		if (sc->sc_rsp_vers == IWX_FBSD_RSP_V4)
+			ch_flags = le32_to_cpup(
+			    sc->sc_rsp_info.rsp_v4.regulatory.channel_profile + ch_idx);
+		else
+			ch_flags = le16_to_cpup(
+			    sc->sc_rsp_info.rsp_v3.regulatory.channel_profile + ch_idx);
 
-                DPRINTF(("%s: will add 5ghz chans\n", __func__));
-                ieee80211_add_channel_list_5ghz(ic->ic_channels, maxchans, nchans,
-		    channel_list_5ghz,
-		    channels_5ghz, bands,
-                    0);
-        }
+		if ((ch_flags & IWX_NVM_CHANNEL_VALID) == 0)
+		continue;
+
+		if ((ch_flags & IWX_NVM_CHANNEL_40MHZ) != 0)
+			cflags |= NET80211_CBW_FLAG_HT40;
+		if ((ch_flags & IWX_NVM_CHANNEL_80MHZ) != 0)
+			cflags |= NET80211_CBW_FLAG_VHT80;
+		if ((ch_flags & IWX_NVM_CHANNEL_160MHZ) != 0)
+			cflags |= NET80211_CBW_FLAG_VHT160;
+
+		/* XXX-BZ nflags RADAR/DFS/INDOOR */
+
+		/* error = */ ieee80211_add_channel_cbw(chans, maxchans, nchans,
+		nvm_channels[ch_idx],
+		ieee80211_ieee2mhz(nvm_channels[ch_idx], IEEE80211_CHAN_A),
+		/* max_power IWL_DEFAULT_MAX_TX_POWER */ 22,
+		nflags, bands, cflags);
+	}
+band_6:
+	/* 6GHz one day ... */
+	return;
 }
 
 static int
