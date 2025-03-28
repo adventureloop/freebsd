@@ -5,8 +5,8 @@
  *
  * Copyright (c) 2024 The FreeBSD Foundation
  *
- * This software was developed by Tom Jones <thj@FreeBSD.org> under sponsorship
- * from the FreeBSD Foundation.
+ * Portions of this software were developed by Tom Jones <thj@FreeBSD.org>
+ * under sponsorship from the FreeBSD Foundation.
  */
 
 #include <sys/param.h>

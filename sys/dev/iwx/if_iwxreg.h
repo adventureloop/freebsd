@@ -1,4 +1,16 @@
+/*-
+ * SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+ */
+
 /*	$OpenBSD: if_iwxreg.h,v 1.51 2023/03/06 11:18:37 stsp Exp $	*/
+
+/*
+ * Copyright (c) 2025 The FreeBSD Foundation
+ *
+ * Portions of this software were developed by Tom Jones <thj@FreeBSD.org>
+ * under sponsorship from the FreeBSD Foundation.
+ *
+ */
 
 /*-
  * Based on BSD-licensed source modules in the Linux iwlwifi driver,

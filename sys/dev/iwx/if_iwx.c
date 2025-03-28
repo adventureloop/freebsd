@@ -1,4 +1,17 @@
+/*-
+ * SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+ */
+
 /*	$OpenBSD: if_iwx.c,v 1.175 2023/07/05 15:07:28 stsp Exp $	*/
+
+/*
+ *
+ * Copyright (c) 2025 The FreeBSD Foundation
+ *
+ * Portions of this software were developed by Tom Jones <thj@FreeBSD.org>
+ * under sponsorship from the FreeBSD Foundation.
+ *
+ */
 
 /*-
  * Copyright (c) 2024 Future Crew, LLC

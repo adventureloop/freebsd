@@ -1,4 +1,16 @@
+/*-
+ * SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+ */
+
 /*	$OpenBSD: if_iwxvar.h,v 1.41 2023/03/06 11:53:24 stsp Exp $	*/
+
+/*
+ * Copyright (c) The FreeBSD Foundation.
+ *
+ * Portions of this software were developed by Tom Jones <thj@FreeBSD.org>
+ * under sponsorship from the FreeBSD Foundation.
+ *
+ */
 
 /*
  * Copyright (c) 2014 genua mbh <info@genua.de>
