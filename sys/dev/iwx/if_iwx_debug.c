@@ -11,38 +11,18 @@
 
 #include <sys/param.h>
 #include <sys/systm.h>
+#include <net/ethernet.h>
 
+#include <net80211/ieee80211.h>
+
+#define le32_to_cpup(_a_) (le32toh(*(const uint32_t *)(_a_)))
+
+#include <dev/iwx/if_iwxreg.h>
 #include <dev/iwx/if_iwx_debug.h>
-
-/* 
- * Pull in command groups and cmd selectors to avoid pulling in all if iwx_reg.h
- * and if_iwxvar.h.
- */
-#define IWX_LEGACY_GROUP		0x0
-#define IWX_LONG_GROUP			0x1
-#define IWX_SYSTEM_GROUP		0x2
-#define IWX_MAC_CONF_GROUP 		0x3
-#define IWX_PHY_OPS_GROUP		0x4
-#define IWX_DATA_PATH_GROUP		0x5
-#define IWX_PROT_OFFLOAD_GROUP  	0xb
-#define IWX_REGULATORY_AND_NVM_GROUP	0xc
-
-static inline uint8_t
-iwx_cmd_opcode(uint32_t cmdid)
-{
-        return cmdid & 0xff;
-}
-
-static inline uint8_t
-iwx_cmd_groupid(uint32_t cmdid)
-{
-        return ((cmdid & 0Xff00) >> 8);
-}
 
 static uint16_t bbl_idx = 0;
 static uint32_t bbl_seq = 0;
 static uint8_t bbl_compress = 1;
-
 
 static const char *
 iwx_bbl_to_str(int type)
@@ -228,4 +208,115 @@ iwx_bbl_print_log(void)
 		iwx_bbl_print_entry(e);
 	}
 	printf("iwx bblog index %d seq %d\n", bbl_idx, bbl_seq);
+}
+
+void
+print_ratenflags(const char *func, int line, uint32_t flags, int ver)
+{
+	printf("%s:%d\n\t flags 0x%08x ", func, line, flags);
+
+	if (ver >= 2) {
+		printf(" rate_n_flags version 2\n");
+
+		uint32_t type = (flags & IWX_RATE_MCS_MOD_TYPE_MSK) >> IWX_RATE_MCS_MOD_TYPE_POS;
+
+		switch(type)
+		{
+		case 0:
+			printf("\t(0) Legacy CCK: ");
+			switch (flags & IWX_RATE_LEGACY_RATE_MSK)
+			{
+			case 0:
+				printf("(0) 0xa - 1 Mbps\n");
+				break;
+			case 1:
+				printf("(1) 0x14 - 2 Mbps\n");
+				break;
+			case 2:
+				printf("(2) 0x37 - 5.5 Mbps\n");
+				break;
+			case 3:
+				printf("(3) 0x6e - 11 nbps\n");
+				break;
+			}
+			break;
+		case 1:
+			printf("\t(1) Legacy OFDM \n");
+			switch (flags & IWX_RATE_LEGACY_RATE_MSK)
+			{
+			case 0:
+				printf("(0) 6 Mbps\n");
+				break;
+			case 1:
+				printf("(1) 9 Mbps\n");
+				break;
+			case 2:
+				printf("(2) 12 Mbps\n");
+				break;
+			case 3:
+				printf("(3) 18 Mbps\n");
+				break;
+			case 4:
+				printf("(4) 24 Mbps\n");
+				break;
+			case 5:
+				printf("(5) 36 Mbps\n");
+				break;
+			case 6:
+				printf("(6) 48 Mbps\n");
+				break;
+			case 7:
+				printf("(7) 54 Mbps\n");
+				break;
+			}
+			break;
+		case 2:
+			printf("\t(2) High-throughput (HT)\n");
+			break;
+		case 3:
+			printf("\t(3) Very High-throughput (VHT) \n");
+			break;
+		case 4:
+			printf("\t(4) High-efficiency (HE)\n");
+			break;
+		case 5:
+			printf("\t(5) Extremely High-throughput (EHT)\n");
+			break;
+		default:
+			printf("invalid\n");
+		}
+
+		/* Not a legacy rate. */
+		if (type > 1) {
+			printf("\tMCS %d ", IWX_RATE_HT_MCS_INDEX(flags));
+			switch((flags & IWX_RATE_MCS_CHAN_WIDTH_MSK) >> IWX_RATE_MCS_CHAN_WIDTH_POS)
+			{
+			case 0:
+				printf("20MHz ");
+				break;
+			case 1:
+				printf("40MHz ");
+				break;
+			case 2:
+				printf("80MHz ");
+				break;
+			case 3:
+				printf("160MHz ");
+				break;
+			case 4:
+				printf("320MHz ");
+				break;
+
+			}
+			printf("antennas: (%s|%s) ",
+				flags & (1 << 14) ? "A" : " ",
+				flags & (1 << 15) ? "B" : " ");
+			if (flags & (1 << 16))
+				printf("ldpc ");
+			printf("\n");
+		}
+	} else {
+		printf("%s:%d rate_n_flags versions other than < 2 not implemented",
+		    __func__, __LINE__);
+	}
 }

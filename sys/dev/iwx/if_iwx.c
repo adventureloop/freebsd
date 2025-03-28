@@ -5482,8 +5482,8 @@ iwx_tx_fill_cmd(struct iwx_softc *sc, struct iwx_node *in,
 	 * Association will only succeed if we do this correctly.
 	 */
 
-	DPRINTF(("%s: min_ridx=%i\n", __func__, min_ridx));
-	DPRINTF(("%s: ridx=%i\n", __func__, ridx));
+	IWX_DPRINTF(sc, IWX_DEBUG_TXRATE,"%s%d:: min_ridx=%i\n", __func__, __LINE__, min_ridx);
+	IWX_DPRINTF(sc, IWX_DEBUG_TXRATE, "%s:%d: ridx=%i\n", __func__, __LINE__, ridx);
 	rate_flags = IWX_RATE_MCS_ANT_A_MSK;
 	if (IWX_RIDX_IS_CCK(ridx)) {
 		if (sc->sc_rate_n_flags_version >= 2)
@@ -5495,7 +5495,9 @@ iwx_tx_fill_cmd(struct iwx_softc *sc, struct iwx_node *in,
 
 	rval = (rs->rs_rates[ieee80211_node_get_txrate_dot11rate(ni)]
 	    & IEEE80211_RATE_VAL);
-	DPRINTF(("%s: rval=%i\n", __func__, rval));
+	IWX_DPRINTF(sc, IWX_DEBUG_TXRATE, "%s:%d: rval=%i dot11 %d\n", __func__, __LINE__,
+	    rval, rs->rs_rates[ieee80211_node_get_txrate_dot11rate(ni)]);
+
 	if (sc->sc_rate_n_flags_version >= 2) {
 		if (rate_flags & IWX_RATE_MCS_LEGACY_OFDM_MSK) {
 			rate_flags |= (iwx_fw_rateidx_ofdm(rval) &
@@ -5512,6 +5514,10 @@ iwx_tx_fill_cmd(struct iwx_softc *sc, struct iwx_node *in,
 	    __func__, __LINE__,*flags);
 	IWX_DPRINTF(sc, IWX_DEBUG_TXRATE, "%s:%d rate_n_flags=0x%x\n",
 	    __func__, __LINE__, *rate_n_flags);
+
+	if (sc->sc_debug & IWX_DEBUG_TXRATE)
+		print_ratenflags(__func__, __LINE__,
+		    *rate_n_flags, sc->sc_rate_n_flags_version);
 
 	return rinfo;
 }
@@ -7278,6 +7284,10 @@ iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 
 	rate_n_flags = le32toh(notif->rate);
 
+	if (sc->sc_debug & IWX_DEBUG_TXRATE)
+		print_ratenflags(__func__, __LINE__,
+		    rate_n_flags, sc->sc_rate_n_flags_version);
+
 	cmd_ver = iwx_lookup_notif_ver(sc, IWX_DATA_PATH_GROUP,
 	    IWX_TLC_MNG_UPDATE_NOTIF);
 	if (cmd_ver != IWX_FW_CMD_VER_UNKNOWN && cmd_ver >= 3)
@@ -7286,12 +7296,15 @@ iwx_rs_update(struct iwx_softc *sc, struct iwx_tlc_update_notif *notif)
 	if (rate_n_flags_ver2) {
 		uint32_t mod_type = (rate_n_flags & IWX_RATE_MCS_MOD_TYPE_MSK);
 		if (mod_type == IWX_RATE_MCS_HT_MSK) {
+
 			ieee80211_node_set_txrate_dot11rate(ni,
-				IWX_RATE_HT_MCS_INDEX(rate_n_flags));
+				IWX_RATE_HT_MCS_INDEX(rate_n_flags) |
+				IEEE80211_RATE_MCS);
 			IWX_DPRINTF(sc, IWX_DEBUG_TXRATE,
-			    "%s:%d new MCS idx: %d rate_n_flags: %x\n",
+			    "%s:%d new MCS: %d rate_n_flags: %x\n",
 			    __func__, __LINE__,
-			    ieee80211_node_get_txrate_dot11rate(ni), rate_n_flags);
+			    ieee80211_node_get_txrate_dot11rate(ni) & ~IEEE80211_RATE_MCS,
+			    rate_n_flags);
 			return;
 		}
 	} else {

@@ -55,6 +55,7 @@ enum {
 #endif
 
 void print_opcode(const char *, int, int, uint32_t);
+void print_ratenflags(const char *, int , uint32_t , int );
 void iwx_dump_cmd(uint32_t , void *, uint16_t, const char *, int);
 void iwx_bbl_add_entry(uint64_t, int, int);
 void iwx_bbl_print_log(void);
